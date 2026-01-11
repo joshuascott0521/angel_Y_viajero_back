@@ -2,10 +2,10 @@ import sql from "mssql";
 import { getPool } from "../../config/db";
 
 export const perfilesRepo = {
+
   // =========================
   // PERFIL VIAJERO
   // =========================
-
   async getPerfilViajero(usuarioId: string) {
     const pool = await getPool();
 
@@ -113,6 +113,7 @@ export const perfilesRepo = {
     };
   },
 
+  // Patch parcial del perfil viajero datos esenciales
   async patchUsuarioPersonal(input: {
     usuarioId: string;
     nombre?: string;
@@ -154,6 +155,7 @@ export const perfilesRepo = {
     `);
   },
 
+  // Patch parcial del perfil viajero datos específicos
   async patchPerfilViajero(input: {
     usuarioId: string;
     zonaId?: number;
@@ -237,6 +239,8 @@ export const perfilesRepo = {
       WHERE UsuarioId = @UsuarioId;
     `);
   },
+
+  // reemplazo total de asistencias
   async replaceViajeroAsistencias(input: {
     usuarioId: string;
     tipoAsistenciaIds: number[];
@@ -265,6 +269,8 @@ export const perfilesRepo = {
       throw e;
     }
   },
+
+  // upsert contacto de emergencia
   async upsertContactoEmergencia(input: {
     usuarioId: string;
     nombre: string;
@@ -292,6 +298,8 @@ export const perfilesRepo = {
       END
     `);
   },
+
+  // reemplazo total de idiomas
   async replaceUsuarioIdiomas(input: {
     usuarioId: string;
     idiomaIds: number[];
@@ -318,6 +326,7 @@ export const perfilesRepo = {
       throw e;
     }
   },
+
   // =========================
   // PERFIL ÁNGEL
   // =========================
@@ -398,35 +407,7 @@ export const perfilesRepo = {
     };
   },
 
-  async upsertPerfilAngel(input: {
-    usuarioId: string;
-    disponibilidad?: boolean; // si no llega, no se toca
-    biografia: string | null;
-    zonaBaseId: number | null;
-  }) {
-    const pool = await getPool();
-
-    await pool
-      .request()
-      .input("UsuarioId", sql.UniqueIdentifier, input.usuarioId)
-      .input("Disponibilidad", sql.Bit, input.disponibilidad ?? null)
-      .input("Biografia", sql.VarChar(500), input.biografia)
-      .input("ZonaBaseId", sql.Int, input.zonaBaseId).query(`
-        IF EXISTS (SELECT 1 FROM dbo.PerfilAngel WHERE UsuarioId = @UsuarioId)
-        BEGIN
-          UPDATE dbo.PerfilAngel
-          SET Biografia = @Biografia,
-              ZonaBaseId = @ZonaBaseId,
-              Disponibilidad = COALESCE(@Disponibilidad, Disponibilidad)
-          WHERE UsuarioId = @UsuarioId;
-        END
-        ELSE
-        BEGIN
-          INSERT INTO dbo.PerfilAngel (UsuarioId, Disponibilidad, Biografia, ZonaBaseId)
-          VALUES (@UsuarioId, COALESCE(@Disponibilidad, 1), @Biografia, @ZonaBaseId);
-        END
-      `);
-  },
+  // Patch parcial del perfil ángel datos esenciales
   async patchPerfilAngel(input: {
     usuarioId: string;
     disponibilidad?: boolean;
@@ -469,9 +450,7 @@ export const perfilesRepo = {
       `);
   },
 
-  // =========================
-  // HABILIDADES (replace total)
-  // =========================
+  // reemplazo total de habilidades
   async replaceAngelHabilidades(input: {
     usuarioId: string;
     habilidadIds: number[];
@@ -503,9 +482,7 @@ export const perfilesRepo = {
     }
   },
 
-  // =========================
-  // IDIOMAS (replace total)
-  // =========================
+  // reemplazo total de idiomas
   async replaceAngelIdiomas(input: { usuarioId: string; idiomaIds: number[] }) {
     const pool = await getPool();
     const tx = new sql.Transaction(pool);
@@ -532,9 +509,7 @@ export const perfilesRepo = {
     }
   },
 
-  // =========================
-  // ZONAS COBERTURA (replace total)
-  // =========================
+  // reemplazo total de zonas de cobertura
   async replaceAngelZonasCobertura(input: {
     usuarioId: string;
     zonaIds: number[];
@@ -566,9 +541,7 @@ export const perfilesRepo = {
     }
   },
 
-  // =========================
-  // DISPONIBILIDAD SEMANAL (upsert por día)
-  // =========================
+  // upsert disponibilidad semanal
   async upsertAngelDisponibilidad(input: {
     usuarioId: string;
     dias: Array<{

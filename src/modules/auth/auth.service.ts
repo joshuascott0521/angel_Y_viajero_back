@@ -7,14 +7,17 @@ import { getTransporter, MAIL_FROM } from "../../config/mailer";
 import { buildResetPasswordEmail } from "./auth.mail";
 import { AppError } from "../../utils/appError";
 
+// Configuraciones de seguridad
 const MAX_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS || 5);
 const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 10);
 
+// Flujos de login
 enum LoginFlow {
   FIRST_LOGIN = "FIRST_LOGIN",
   NORMAL_LOGIN = "NORMAL_LOGIN",
 }
 
+// Determina el flujo de login basado en el estado del usuario
 function getLoginFlow(user: UsuarioRow): LoginFlow {
   switch (true) {
     case user.PrimerLogin === true:
@@ -25,6 +28,7 @@ function getLoginFlow(user: UsuarioRow): LoginFlow {
   }
 }
 
+// Firma un token JWT
 function signToken(payload: { usuarioId: string; rolId: RolId }) {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -40,21 +44,9 @@ function signToken(payload: { usuarioId: string; rolId: RolId }) {
   });
 }
 
-function signResetToken(payload: { usuarioId: string; correo: string }) {
-  const secret = process.env.RESET_JWT_SECRET;
-  if (!secret) throw new Error("RESET_JWT_SECRET no está configurado");
-
-  const expiresIn = (process.env.RESET_JWT_EXPIRES_IN ??
-    "5m") as SignOptions["expiresIn"];
-
-  // Guardamos el correo como claim opcional, y el usuarioId en subject
-  return jwt.sign({ correo: payload.correo }, secret, {
-    subject: payload.usuarioId,
-    expiresIn,
-  });
-}
-
 export const authService = {
+
+  // Registro de nuevo usuario
   async register(input: {
     nombre: string;
     correo: string;
@@ -82,6 +74,7 @@ export const authService = {
     return { usuarioId: creado.UsuarioId, rolId: input.rolId, token };
   },
 
+  // Login de usuario
   async login(input: { correo: string; password: string }) {
     const correo = input.correo.trim().toLowerCase();
     const user = await authRepo.findByCorreo(correo);
@@ -174,6 +167,7 @@ export const authService = {
     }
   },
 
+  // Solicitar reseteo de contraseña
   async forgotPassword(input: { correo: string }) {
     const correo = input.correo.trim().toLowerCase();
     const user = await authRepo.findByCorreo(correo);
@@ -222,6 +216,7 @@ export const authService = {
     };
   },
 
+  // Reseteo de contraseña
   async resetPassword(input: { token: string; newPassword: string }) {
     const tokenHash = authRepo.hashToken(input.token);
 

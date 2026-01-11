@@ -1,10 +1,11 @@
 import { perfilesRepo } from "./perfiles.repo";
 
 export const perfilesService = {
-  getPerfilViajero: (usuarioId: string) =>
-    perfilesRepo.getPerfilViajero(usuarioId),
+  // Gets
+  getPerfilViajero: (usuarioId: string) => perfilesRepo.getPerfilViajero(usuarioId),
   getPerfilAngel: (usuarioId: string) => perfilesRepo.getPerfilAngel(usuarioId),
 
+  // Patches
   async patchPerfilViajero(usuarioId: string, body: any) {
     // personal
     if (body.personal && typeof body.personal === "object") {
@@ -79,16 +80,6 @@ export const perfilesService = {
 
     // respuesta final: tu GET existente
     return perfilesRepo.getPerfilViajero(usuarioId);
-  },
-
-  async upsertPerfilAngel(input: {
-    usuarioId: string;
-    disponibilidad?: boolean;
-    biografia: string | null;
-    zonaBaseId: number | null;
-  }) {
-    await perfilesRepo.upsertPerfilAngel(input);
-    return perfilesRepo.getPerfilAngel(input.usuarioId);
   },
 
   async patchPerfilAngel(usuarioId: string, body: any) {

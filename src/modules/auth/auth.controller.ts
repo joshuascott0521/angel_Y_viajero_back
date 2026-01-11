@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { authService } from "./auth.service";
-import { authJwt } from "../../middlewares/authJwt";
 
+// Registro de nuevo usuario endpoint
 export async function register(
   req: Request,
   res: Response,
@@ -39,6 +39,7 @@ export async function register(
   }
 }
 
+// Login de usuario endpoint
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const { correo, password } = req.body;
@@ -56,6 +57,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+// Solicitar reseteo de contraseña endpoint
 export async function forgotPassword(
   req: Request,
   res: Response,
@@ -74,6 +76,7 @@ export async function forgotPassword(
   }
 }
 
+// Reseteo de contraseña endpoint
 export async function resetPassword(
   req: Request,
   res: Response,
