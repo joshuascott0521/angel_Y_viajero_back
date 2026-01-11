@@ -37,15 +37,6 @@ export const getByAngel = async (req: Request, res: Response) => {
   }
 };
 
-export const getActivosByAngel = async (req: Request, res: Response) => {
-  try {
-    const data = await serviciosService.getActivosByAngel(req);
-    return res.json(data);
-  } catch (err: any) {
-    return res.status(err?.status ?? 400).json({ mensaje: err?.message ?? "Error" });
-  }
-};
-
 export const getByViajero = async (req: Request, res: Response) => {
   try {
     const data = await serviciosService.getByViajero(req);

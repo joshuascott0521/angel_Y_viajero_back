@@ -11,6 +11,7 @@ export type UsuarioRow = {
   PasswordHash: string;
   Estado: number | boolean; // depende tu tabla (BIT o int)
   IntentosLoginFallidos: number;
+  BloqueadoHasta: Date | null;
 };
 
 function hashToken(token: string) {
@@ -24,7 +25,7 @@ export const authRepo = {
       .request()
       .input("Correo", sql.VarChar(120), correo.trim().toLowerCase()).query(`
       SELECT TOP 1
-        UsuarioId, RolId, Nombre, Correo, PasswordHash, Estado, IntentosLoginFallidos
+        UsuarioId, RolId, Nombre, Correo, PasswordHash, Estado, IntentosLoginFallidos, BloqueadoHasta
       FROM dbo.Usuario
       WHERE Correo = @Correo
     `);
@@ -34,7 +35,6 @@ export const authRepo = {
 
   async createUsuario(input: {
     nombre: string;
-    edad: number;
     correo: string;
     passwordHash: string;
     rolId: RolId;
@@ -43,14 +43,13 @@ export const authRepo = {
     const r = await pool
       .request()
       .input("Nombre", sql.VarChar(200), input.nombre)
-      .input("Edad", sql.Int, input.edad)
       .input("Correo", sql.VarChar(120), input.correo.trim().toLowerCase())
       .input("PasswordHash", sql.VarChar(200), input.passwordHash)
       .input("RolId", sql.Int, input.rolId).query(`
         DECLARE @NewId UNIQUEIDENTIFIER = NEWID();
 
-        INSERT INTO dbo.Usuario (UsuarioId, Nombre, Edad, RolId, Correo, PasswordHash, IntentosLoginFallidos)
-        VALUES (@NewId, @Nombre, @Edad, @RolId, @Correo, @PasswordHash, 0);
+        INSERT INTO dbo.Usuario (UsuarioId, Nombre, RolId, Correo, PasswordHash, IntentosLoginFallidos)
+        VALUES (@NewId, @Nombre, @RolId, @Correo, @PasswordHash, 0);
 
         SELECT @NewId AS UsuarioId;
 `);
@@ -58,14 +57,27 @@ export const authRepo = {
     return { UsuarioId: r.recordset[0].UsuarioId };
   },
 
-  async resetIntentos(usuarioId: string) {
+  async bloquearUsuario(usuarioId: string, minutos: number) {
     const pool = await getPool();
     await pool
       .request()
       .input("UsuarioId", sql.UniqueIdentifier, usuarioId)
-      .query(
-        `UPDATE dbo.Usuario SET IntentosLoginFallidos = 0 WHERE UsuarioId = @UsuarioId;`
-      );
+      .input("Minutos", sql.Int, minutos).query(`
+      UPDATE dbo.Usuario
+      SET BloqueadoHasta = DATEADD(MINUTE, @Minutos, SYSUTCDATETIME())
+      WHERE UsuarioId = @UsuarioId;
+    `);
+  },
+
+  async resetIntentos(usuarioId: string) {
+    const pool = await getPool();
+    await pool.request().input("UsuarioId", sql.UniqueIdentifier, usuarioId)
+      .query(`
+      UPDATE dbo.Usuario
+      SET IntentosLoginFallidos = 0,
+          BloqueadoHasta = NULL
+      WHERE UsuarioId = @UsuarioId;
+    `);
   },
 
   async sumarIntento(usuarioId: string) {
@@ -76,18 +88,6 @@ export const authRepo = {
         SET IntentosLoginFallidos = ISNULL(IntentosLoginFallidos, 0) + 1
         WHERE UsuarioId = @UsuarioId;
       `);
-  },
-
-  async getById(usuarioId: string) {
-    const pool = await getPool();
-    const r = await pool
-      .request()
-      .input("UsuarioId", sql.UniqueIdentifier, usuarioId).query(`
-        SELECT TOP 1 UsuarioId, RolId, Correo, Estado
-        FROM dbo.Usuario
-        WHERE UsuarioId = @UsuarioId;
-      `);
-    return r.recordset?.[0] ?? null;
   },
 
   hashToken,

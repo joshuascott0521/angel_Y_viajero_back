@@ -31,15 +31,6 @@ export const serviciosRepo = {
     return r.recordset;
   },
 
-  async getActivosByAngel(perfilAngelId: string) {
-    const pool = await getPool();
-    const req = pool.request();
-    req.input("PerfilAngelId", sql.UniqueIdentifier, perfilAngelId);
-
-    const r = await req.execute("dbo.ServiciosGetActivosByAngel");
-    return r.recordset;
-  },
-
   async getByViajero(perfilViajeroId: string) {
     const pool = await getPool();
     const req = pool.request();

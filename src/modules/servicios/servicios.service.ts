@@ -56,17 +56,6 @@ export const serviciosService = {
 
     return serviciosRepo.getByAngel(perfilAngelId);
   },
-
-  async getActivosByAngel(req: Request) {
-    if (!req.user) throw httpError(401, "No autorizado");
-    if (req.user.rolId !== ROL.Angel) throw httpError(403, "Solo Angel");
-
-    const { perfilAngelId } = req.params;
-    if (perfilAngelId !== req.user.usuarioId) throw httpError(403, "Sin permiso");
-
-    return serviciosRepo.getActivosByAngel(perfilAngelId);
-  },
-
   async getByViajero(req: Request) {
     if (!req.user) throw httpError(401, "No autorizado");
     if (req.user.rolId !== ROL.Viajero) throw httpError(403, "Solo Viajero");

@@ -122,27 +122,6 @@ router.get("/angel/:perfilAngelId", authJwt, controller.getByAngel);
 
 /**
  * @swagger
- * /api/servicios/angel/{perfilAngelId}/activos:
- *   get:
- *     summary: Listar servicios activos del ángel
- *     tags: [Servicios]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: perfilAngelId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Lista de servicios en curso
- */
-router.get("/angel/:perfilAngelId/activos", authJwt, controller.getActivosByAngel);
-
-/**
- * @swagger
  * /api/servicios/viajero/{perfilViajeroId}:
  *   get:
  *     summary: Listar servicios del viajero

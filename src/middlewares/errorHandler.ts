@@ -1,6 +1,5 @@
-// src/middlewares/errorHandler.ts
 import type { Request, Response, NextFunction } from "express";
-import { HttpError } from "../utils/httpError";
+import { AppError } from "../utils/appError";
 
 export function errorHandler(
   err: unknown,
@@ -10,22 +9,19 @@ export function errorHandler(
 ) {
   console.error("[ERROR]", err);
 
-  // Errores controlados (los que lanzamos a propósito)
-  if (err instanceof HttpError) {
+  if (err instanceof AppError) {
     return res.status(err.status).json({
+      ok: false,
       mensaje: err.message,
+      code: err.code,
+      details: err.details ?? null,
     });
   }
 
-  // Errores normales de JS
-  if (err instanceof Error) {
-    return res.status(500).json({
-      mensaje: err.message,
-    });
-  }
-
-  // Cualquier otra cosa rara
+  // NO devuelvas err.message en 500 (seguridad)
   return res.status(500).json({
+    ok: false,
     mensaje: "Error interno del servidor",
+    code: "INTERNAL_ERROR",
   });
 }

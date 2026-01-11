@@ -3,8 +3,12 @@ import jwt, { type SignOptions } from "jsonwebtoken";
 import { authRepo } from "./auth.repo";
 import { ROL_ID, type RolId } from "../../constants/roles";
 import crypto from "crypto";
+import { getTransporter, MAIL_FROM } from "../../config/mailer";
+import { buildResetPasswordEmail } from "./auth.mail";
+import { AppError } from "../../utils/appError";
 
 const MAX_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS || 5);
+const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 10);
 
 function signToken(payload: { usuarioId: string; rolId: RolId }) {
   const secret = process.env.JWT_SECRET;
@@ -24,7 +28,6 @@ function signToken(payload: { usuarioId: string; rolId: RolId }) {
 export const authService = {
   async register(input: {
     nombre: string;
-    edad: number;
     correo: string;
     password: string;
     rolId: RolId;
@@ -38,7 +41,6 @@ export const authService = {
 
     const creado = await authRepo.createUsuario({
       nombre: input.nombre,
-      edad: input.edad,
       correo,
       passwordHash: hash,
       rolId: input.rolId,
@@ -55,18 +57,60 @@ export const authService = {
     const correo = input.correo.trim().toLowerCase();
     const user = await authRepo.findByCorreo(correo);
 
-    if (!user) throw new Error("Credenciales inválidas");
+    if (!user)
+      throw new AppError(
+        "Credenciales inválidas",
+        400,
+        "AUTH_INVALID_CREDENTIALS"
+      );
 
-    if ((user.IntentosLoginFallidos ?? 0) >= MAX_ATTEMPTS) {
-      throw new Error("Demasiados intentos. Intenta más tarde.");
+    // 1) Si está bloqueado
+    if (user.BloqueadoHasta && new Date(user.BloqueadoHasta) > new Date()) {
+      const ms = new Date(user.BloqueadoHasta).getTime() - Date.now();
+      const retryAfterSeconds = Math.max(1, Math.ceil(ms / 1000));
+
+      throw new AppError(
+        "Cuenta bloqueada temporalmente por demasiados intentos.",
+        429,
+        "AUTH_TEMP_LOCKED",
+        { retryAfterSeconds }
+      );
+    }
+
+    // 2) Si ya pasó el bloqueo, limpia (opcional recomendado)
+    if (user.BloqueadoHasta && new Date(user.BloqueadoHasta) <= new Date()) {
+      await authRepo.resetIntentos(user.UsuarioId); // también pone BloqueadoHasta = NULL
     }
 
     const ok = await bcrypt.compare(input.password, user.PasswordHash);
+
     if (!ok) {
       await authRepo.sumarIntento(user.UsuarioId);
-      throw new Error("Credenciales inválidas");
+      const intentosActuales = (user.IntentosLoginFallidos ?? 0) + 1;
+
+      // si llegó al límite -> bloquear ahora
+      if (intentosActuales >= MAX_ATTEMPTS) {
+        await authRepo.bloquearUsuario(user.UsuarioId, LOCK_MINUTES);
+
+        throw new AppError(
+          `Demasiados intentos. Bloqueado por ${LOCK_MINUTES} minutos.`,
+          429,
+          "AUTH_TEMP_LOCKED",
+          { retryAfterSeconds: LOCK_MINUTES * 60 }
+        );
+      }
+
+      throw new AppError(
+        "Credenciales inválidas",
+        400,
+        "AUTH_INVALID_CREDENTIALS",
+        {
+          remainingAttempts: MAX_ATTEMPTS - intentosActuales,
+        }
+      );
     }
 
+    // éxito
     await authRepo.resetIntentos(user.UsuarioId);
 
     const token = signToken({
@@ -77,15 +121,9 @@ export const authService = {
     return {
       usuarioId: user.UsuarioId,
       rolId: user.RolId,
-      nombre: user.Nombre, // ✅ nuevo
+      nombre: user.Nombre,
       token,
     };
-  },
-
-  async me(usuarioId: string) {
-    const u = await authRepo.getById(usuarioId);
-    if (!u) throw new Error("Usuario no encontrado");
-    return u;
   },
 
   async forgotPassword(input: { correo: string }) {
@@ -114,12 +152,25 @@ export const authService = {
       expiraEn,
     });
 
+    // ✅ enviar por correo (Gmail)
+    const transporter = getTransporter();
+    const { subject, text, html } = buildResetPasswordEmail({
+      nombre: user.Nombre,
+      token,
+      expiraMin: 5,
+    });
+
+    await transporter.sendMail({
+      from: MAIL_FROM,
+      to: user.Correo,
+      subject,
+      text,
+      html,
+    });
+
     // DEV: devolvemos token para que puedas probar
     return {
-      mensaje: "Token generado (DEV). En producción se enviaría por correo.",
-      correo,
-      token,
-      expiraEn,
+      mensaje: "Si el correo existe, se enviará un código de recuperación.",
     };
   },
 

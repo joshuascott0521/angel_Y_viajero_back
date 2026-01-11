@@ -4,13 +4,10 @@ import { authJwt } from "../../middlewares/authJwt";
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
-    const { nombre, edad, correo, password, rol } = req.body;
+    const { nombre, correo, password, rol } = req.body;
 
     if (!nombre || typeof nombre !== "string") {
       return res.status(400).json({ mensaje: "nombre es requerido" });
-    }
-    if (edad === undefined || Number.isNaN(Number(edad))) {
-      return res.status(400).json({ mensaje: "edad es requerida" });
     }
     if (!correo || !password || !rol) {
       return res
@@ -27,7 +24,6 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 
     const data = await authService.register({
       nombre: nombre.trim(),
-      edad: Number(edad),
       correo,
       password,
       rolId,
@@ -55,18 +51,6 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     return next(err);
   }
 }
-
-export const me = [
-  authJwt,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = await authService.me(req.user!.usuarioId);
-      return res.json(data);
-    } catch (err) {
-      return next(err);
-    }
-  },
-];
 
 export async function forgotPassword(
   req: Request,

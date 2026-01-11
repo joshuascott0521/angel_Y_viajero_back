@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { register, login, me, forgotPassword, resetPassword } from "./auth.controller";
+import { register, login, forgotPassword, resetPassword } from "./auth.controller";
 
 const router = Router();
 
 router.post("/register", register);
 router.post("/login", login);
-router.get("/me", me);
 router.post("/password/forgot", forgotPassword);
 router.post("/password/reset", resetPassword);
 
@@ -25,21 +24,18 @@ export default router;
  *         application/json:
  *           schema:
  *             type: object
- *             required: [nombre, edad, correo, password, rol]
+ *             required: [nombre, correo, password, rol]
  *             properties:
  *               nombre:
  *                 type: string
- *                 example: Juan David
- *               edad:
- *                 type: integer
- *                 example: 22
+ *                 example: Pepito Perez
  *               correo:
  *                 type: string
  *                 format: email
- *                 example: juancho@gmail.com
+ *                 example: pperez@gmail.com
  *               password:
  *                 type: string
- *                 example: 12345678
+ *                 example: tuclaveaca
  *               rol:
  *                 type: string
  *                 enum: [Viajero, Angel]
@@ -104,36 +100,6 @@ export default router;
  *                   type: string
  *       400:
  *         description: Credenciales inválidas o usuario bloqueado por intentos
- */
-
-/**
- * @swagger
- * /api/auth/me:
- *   get:
- *     summary: Obtener sesión actual
- *     description: Devuelve datos del usuario autenticado a partir del JWT.
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Sesión válida
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 UsuarioId:
- *                   type: string
- *                 RolId:
- *                   type: integer
- *                 Correo:
- *                   type: string
- *                 Estado:
- *                   type: string
- *                   example: Activo
- *       401:
- *         description: Token requerido o inválido
  */
 
 /**
