@@ -2,7 +2,11 @@ import type { Request, Response, NextFunction } from "express";
 import { authService } from "./auth.service";
 import { authJwt } from "../../middlewares/authJwt";
 
-export async function register(req: Request, res: Response, next: NextFunction) {
+export async function register(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   try {
     const { nombre, correo, password, rol } = req.body;
 
@@ -76,15 +80,15 @@ export async function resetPassword(
   next: NextFunction
 ) {
   try {
-    const { correo, token, newPassword } = req.body;
+    const { token, newPassword } = req.body;
 
-    if (!correo || !token || !newPassword) {
+    if (!token || !newPassword) {
       return res
         .status(400)
-        .json({ mensaje: "correo, token y newPassword son requeridos" });
+        .json({ mensaje: "token y newPassword son requeridos" });
     }
 
-    await authService.resetPassword({ correo, token, newPassword });
+    await authService.resetPassword({ token, newPassword });
     return res.json({ mensaje: "Contraseña actualizada correctamente" });
   } catch (err) {
     return next(err);

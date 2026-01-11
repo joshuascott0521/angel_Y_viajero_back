@@ -155,12 +155,8 @@ export default router;
  *         application/json:
  *           schema:
  *             type: object
- *             required: [correo, token, newPassword]
+ *             required: [token, newPassword]
  *             properties:
- *               correo:
- *                 type: string
- *                 format: email
- *                 example: juancho@gmail.com
  *               token:
  *                 type: string
  *                 example: a3f1c9e4b7d84f8d9c2e...

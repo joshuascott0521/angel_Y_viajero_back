@@ -40,6 +40,20 @@ function signToken(payload: { usuarioId: string; rolId: RolId }) {
   });
 }
 
+function signResetToken(payload: { usuarioId: string; correo: string }) {
+  const secret = process.env.RESET_JWT_SECRET;
+  if (!secret) throw new Error("RESET_JWT_SECRET no está configurado");
+
+  const expiresIn = (process.env.RESET_JWT_EXPIRES_IN ??
+    "5m") as SignOptions["expiresIn"];
+
+  // Guardamos el correo como claim opcional, y el usuarioId en subject
+  return jwt.sign({ correo: payload.correo }, secret, {
+    subject: payload.usuarioId,
+    expiresIn,
+  });
+}
+
 export const authService = {
   async register(input: {
     nombre: string;
@@ -175,7 +189,7 @@ export const authService = {
     await authRepo.invalidateActiveResetTokens(user.UsuarioId);
 
     // token aleatorio
-    const token = crypto.randomBytes(24).toString("hex"); // 48 chars
+    const token = crypto.randomBytes(6).toString("hex"); // 12 chars
     const tokenHash = authRepo.hashToken(token);
 
     const expiraEn = new Date(Date.now() + 5 * 60 * 1000); // 5 min
@@ -208,32 +222,25 @@ export const authService = {
     };
   },
 
-  async resetPassword(input: {
-    correo: string;
-    token: string;
-    newPassword: string;
-  }) {
-    const correo = input.correo.trim().toLowerCase();
-    const user = await authRepo.findByCorreo(correo);
-
-    // misma idea: si no existe, no revelamos
-    if (!user) throw new Error("Token inválido o expirado");
-
+  async resetPassword(input: { token: string; newPassword: string }) {
     const tokenHash = authRepo.hashToken(input.token);
-    const tokenRow = await authRepo.findValidResetToken({
-      usuarioId: user.UsuarioId,
-      tokenHash,
-    });
 
-    if (!tokenRow) throw new Error("Token inválido o expirado");
+    const tokenRow = await authRepo.findValidResetTokenByHash(tokenHash);
+    if (!tokenRow) {
+      throw new AppError(
+        "Token inválido o expirado",
+        400,
+        "RESET_INVALID_TOKEN"
+      );
+    }
 
     const newHash = await bcrypt.hash(input.newPassword, 10);
 
-    // Importante: marcar token usado + cambiar password
     await authRepo.updatePasswordHash({
-      usuarioId: user.UsuarioId,
+      usuarioId: tokenRow.UsuarioId,
       passwordHash: newHash,
     });
+
     await authRepo.markResetTokenUsed(tokenRow.PasswordResetTokenId);
   },
 };

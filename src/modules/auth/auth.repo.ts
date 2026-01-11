@@ -126,6 +126,27 @@ export const authRepo = {
         VALUES (@UsuarioId, @TokenHash, @ExpiraEn, 0);
       `);
   },
+  async findValidResetTokenByHash(tokenHash: string) {
+    const pool = await getPool();
+
+    const r = await pool
+      .request()
+      .input("TokenHash", sql.VarChar(255), tokenHash).query(`
+      SELECT TOP 1
+        PasswordResetTokenId,
+        UsuarioId,
+        ExpiraEn,
+        Usado
+      FROM dbo.PasswordResetToken
+      WHERE TokenHash = @TokenHash
+        AND Usado = 0
+        AND ExpiraEn >= SYSUTCDATETIME()
+      ORDER BY FechaCreacion DESC;
+    `);
+
+    return r.recordset?.[0] ?? null;
+  },
+
   async findValidResetToken(input: { usuarioId: string; tokenHash: string }) {
     const pool = await getPool();
 
