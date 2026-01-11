@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { authRepo } from "./auth.repo";
+import { authRepo, UsuarioRow } from "./auth.repo";
 import { ROL_ID, type RolId } from "../../constants/roles";
 import crypto from "crypto";
 import { getTransporter, MAIL_FROM } from "../../config/mailer";
@@ -9,6 +9,21 @@ import { AppError } from "../../utils/appError";
 
 const MAX_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS || 5);
 const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 10);
+
+enum LoginFlow {
+  FIRST_LOGIN = "FIRST_LOGIN",
+  NORMAL_LOGIN = "NORMAL_LOGIN",
+}
+
+function getLoginFlow(user: UsuarioRow): LoginFlow {
+  switch (true) {
+    case user.PrimerLogin === true:
+      return LoginFlow.FIRST_LOGIN;
+
+    default:
+      return LoginFlow.NORMAL_LOGIN;
+  }
+}
 
 function signToken(payload: { usuarioId: string; rolId: RolId }) {
   const secret = process.env.JWT_SECRET;
@@ -118,12 +133,31 @@ export const authService = {
       rolId: user.RolId as RolId,
     });
 
-    return {
-      usuarioId: user.UsuarioId,
-      rolId: user.RolId,
-      nombre: user.Nombre,
-      token,
-    };
+    const flow = getLoginFlow(user);
+
+    switch (flow) {
+      case LoginFlow.FIRST_LOGIN:
+        // marcar como ya ingresó
+        await authRepo.marcarPrimerLogin(user.UsuarioId);
+
+        return {
+          usuarioId: user.UsuarioId,
+          rolId: user.RolId,
+          nombre: user.Nombre,
+          token,
+          primerLogin: true,
+        };
+
+      case LoginFlow.NORMAL_LOGIN:
+      default:
+        return {
+          usuarioId: user.UsuarioId,
+          rolId: user.RolId,
+          nombre: user.Nombre,
+          token,
+          primerLogin: false,
+        };
+    }
   },
 
   async forgotPassword(input: { correo: string }) {

@@ -12,6 +12,7 @@ export type UsuarioRow = {
   Estado: number | boolean; // depende tu tabla (BIT o int)
   IntentosLoginFallidos: number;
   BloqueadoHasta: Date | null;
+  PrimerLogin: boolean;
 };
 
 function hashToken(token: string) {
@@ -24,13 +25,31 @@ export const authRepo = {
     const r = await pool
       .request()
       .input("Correo", sql.VarChar(120), correo.trim().toLowerCase()).query(`
-      SELECT TOP 1
-        UsuarioId, RolId, Nombre, Correo, PasswordHash, Estado, IntentosLoginFallidos, BloqueadoHasta
-      FROM dbo.Usuario
-      WHERE Correo = @Correo
-    `);
+        SELECT TOP 1
+          UsuarioId,
+          RolId,
+          Nombre,
+          Correo,
+          PasswordHash,
+          Estado,
+          IntentosLoginFallidos,
+          BloqueadoHasta,
+          PrimerLogin
+        FROM dbo.Usuario
+        WHERE Correo = @Correo;
+      `);
 
     return r.recordset?.[0] ?? null;
+  },
+
+  async marcarPrimerLogin(usuarioId: string) {
+    const pool = await getPool();
+    await pool.request().input("UsuarioId", sql.UniqueIdentifier, usuarioId)
+      .query(`
+      UPDATE dbo.Usuario
+      SET PrimerLogin = 0
+      WHERE UsuarioId = @UsuarioId;
+    `);
   },
 
   async createUsuario(input: {
