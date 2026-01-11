@@ -93,10 +93,19 @@ export const solicitudesRepo = {
     };
   },
 
-  async getAngelesSolicitud() {
+  async getAngelesSolicitud(p: {
+    perfilViajeroId: string;
+    filtro: "all" | "ciudad" | "zona";
+    zonaId: number | null;
+  }) {
     const pool = await getPool();
     const req = pool.request();
-    const r = await req.execute("dbo.AngelesGetAllResumen");
+
+    req.input("PerfilViajeroId", sql.UniqueIdentifier, p.perfilViajeroId);
+    req.input("Filtro", sql.VarChar(10), p.filtro);
+    req.input("ZonaId", sql.Int, p.zonaId);
+
+    const r = await req.execute("dbo.AngelesGetAllResumenFiltrado");
     return r.recordset;
   },
 };

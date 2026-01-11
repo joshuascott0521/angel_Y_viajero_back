@@ -120,8 +120,33 @@ export const solicitudesService = {
   async getAngelesSolicitud(req: Request) {
     if (!req.user) throw httpError(401, "No autorizado");
     if (req.user.rolId !== ROL.Viajero) throw httpError(403, "Solo Viajero");
-    console.log("Usuario solicitando ángeles:", req.user.rolId);
 
-    return solicitudesRepo.getAngelesSolicitud();
+    const filtroRaw = String(req.query.filtro ?? "all").toLowerCase();
+    const filtro = (
+      ["all", "ciudad", "zona"].includes(filtroRaw) ? filtroRaw : null
+    ) as "all" | "ciudad" | "zona" | null;
+
+    if (!filtro)
+      throw httpError(400, "filtro inválido. Use: all | ciudad | zona");
+
+    const zonaId =
+      req.query.zonaId === undefined || req.query.zonaId === null
+        ? null
+        : Number(req.query.zonaId);
+
+    if (filtro === "zona") {
+      if (!zonaId || Number.isNaN(zonaId) || zonaId <= 0) {
+        throw httpError(
+          400,
+          "zonaId es requerido y debe ser > 0 cuando filtro=zona"
+        );
+      }
+    }
+
+    return solicitudesRepo.getAngelesSolicitud({
+      perfilViajeroId: req.user.usuarioId,
+      filtro,
+      zonaId,
+    });
   },
 };

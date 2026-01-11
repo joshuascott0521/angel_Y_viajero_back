@@ -144,15 +144,38 @@ router.post("/:solicitudId/cancelar", authJwt, controller.cancelarViajero);
  * @swagger
  * /api/solicitudes/viajero/angelesSolicitud:
  *   get:
- *     summary: Listar ángeles disponibles para solicitud
+ *     summary: Listar ángeles disponibles (con filtros)
+ *     description: |
+ *       Devuelve un resumen de ángeles.
+ *       - filtro=all: todos
+ *       - filtro=ciudad: solo los de la ciudad del viajero autenticado
+ *       - filtro=zona: solo los de una zona específica (zonaId) dentro de la ciudad del viajero
  *     tags: [Solicitudes]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: filtro
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [all, ciudad, zona]
+ *           default: all
+ *       - in: query
+ *         name: zonaId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           example: 2
  *     responses:
  *       200:
- *         description: Lista de ángeles disponibles
+ *         description: Lista de ángeles disponibles (resumen)
  */
-router.get("/viajero/angelesSolicitud", authJwt, controller.getAngelesSolicitud);
+router.get(
+  "/viajero/angelesSolicitud",
+  authJwt,
+  controller.getAngelesSolicitud
+);
 
 /**
  * @swagger
