@@ -23,7 +23,7 @@ export const perfilesService = {
   // PATCH VIAJERO
   async patchPerfilViajero(usuarioId: string, body: any) {
     try {
-      // personal
+      // 1) personal (Usuario)
       if (body.personal && typeof body.personal === "object") {
         await perfilesRepo.patchUsuarioPersonal({
           usuarioId,
@@ -32,16 +32,9 @@ export const perfilesService = {
           telefono: body.personal.telefono,
           edad: body.personal.edad,
         });
-
-        if (Object.prototype.hasOwnProperty.call(body.personal, "paisOrigen")) {
-          await perfilesRepo.patchPerfilViajero({
-            usuarioId,
-            paisOrigen: body.personal.paisOrigen ?? null,
-          });
-        }
       }
 
-      // perfil viajero
+      // 2) PERFIL VIAJERO (esto crea la fila si no existe)
       await perfilesRepo.patchPerfilViajero({
         usuarioId,
         ...(Object.prototype.hasOwnProperty.call(body, "zonaId")
@@ -53,10 +46,25 @@ export const perfilesService = {
         ...(Object.prototype.hasOwnProperty.call(body, "interesesTuristicos")
           ? { interesesTuristicos: body.interesesTuristicos ?? null }
           : {}),
-        ...(Object.prototype.hasOwnProperty.call(body, "requerimientosAdicionales")
-          ? { requerimientosAdicionales: body.requerimientosAdicionales ?? null }
+        ...(Object.prototype.hasOwnProperty.call(
+          body,
+          "requerimientosAdicionales"
+        )
+          ? {
+              requerimientosAdicionales: body.requerimientosAdicionales ?? null,
+            }
           : {}),
       });
+
+      // 3) AHORA SÍ paisOrigen (ya existe la fila)
+      if (body.personal && typeof body.personal === "object") {
+        if (Object.prototype.hasOwnProperty.call(body.personal, "paisOrigen")) {
+          await perfilesRepo.patchPerfilViajero({
+            usuarioId,
+            paisOrigen: body.personal.paisOrigen ?? null,
+          });
+        }
+      }
 
       // asistencias
       if (Object.prototype.hasOwnProperty.call(body, "asistenciasIds")) {
@@ -113,7 +121,10 @@ export const perfilesService = {
         const ids = Array.isArray(body.habilidadIds)
           ? body.habilidadIds.map(Number)
           : [];
-        await perfilesRepo.replaceAngelHabilidades({ usuarioId, habilidadIds: ids });
+        await perfilesRepo.replaceAngelHabilidades({
+          usuarioId,
+          habilidadIds: ids,
+        });
       }
 
       if (Object.prototype.hasOwnProperty.call(body, "idiomaIds")) {
@@ -125,7 +136,10 @@ export const perfilesService = {
 
       if (Object.prototype.hasOwnProperty.call(body, "zonaIds")) {
         const ids = Array.isArray(body.zonaIds) ? body.zonaIds.map(Number) : [];
-        await perfilesRepo.replaceAngelZonasCobertura({ usuarioId, zonaIds: ids });
+        await perfilesRepo.replaceAngelZonasCobertura({
+          usuarioId,
+          zonaIds: ids,
+        });
       }
 
       if (Object.prototype.hasOwnProperty.call(body, "disponibilidadSemanal")) {

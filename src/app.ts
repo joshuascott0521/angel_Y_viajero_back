@@ -9,6 +9,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import solicitudesRoutes from "./modules/solicitudes/solicitudes.routes";
 import serviciosRoutes from "./modules/servicios/servicios.routes";
 import chatRoutes from "./modules/chat/chat.routes";
+import recompensasRoutes from "./modules/recompensas/recompensas.routes";
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/api/catalogos", catalogosRoutes);
 app.use("/api/solicitudes", solicitudesRoutes);
 app.use("/api/servicios", serviciosRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/recompensas", recompensasRoutes);
 
 app.use(errorHandler);
 export default app;
