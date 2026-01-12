@@ -12,8 +12,18 @@ import serviciosRoutes from "./modules/servicios/servicios.routes";
 const app = express();
 
 const corsOptions: cors.CorsOptions = {
-  origin: "*", // DEV
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  origin: (origin, cb) => {
+    // Permite requests sin origin (Postman, curl, etc.)
+    if (!origin) return cb(null, true);
+
+    const allowed =
+      origin.includes("http://localhost") ||
+      origin.includes("http://127.0.0.1") ||
+      origin.endsWith(".use.devtunnels.ms");
+
+    return allowed ? cb(null, true) : cb(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 

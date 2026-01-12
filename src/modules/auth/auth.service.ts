@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { authRepo, UsuarioRow } from "./auth.repo";
-import { ROL_ID, type RolId } from "../../constants/roles";
+import { authRepo, type UsuarioRow } from "./auth.repo";
+import { type RolId } from "../../constants/roles";
 import crypto from "crypto";
 import { getTransporter, MAIL_FROM } from "../../config/mailer";
 import { buildResetPasswordEmail } from "./auth.mail";
 import { AppError } from "../../utils/appError";
+import { perfilesRepo } from "../perfiles/perfiles.repo";
 
 // Configuraciones de seguridad
 const MAX_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS || 5);
@@ -17,23 +18,18 @@ enum LoginFlow {
   NORMAL_LOGIN = "NORMAL_LOGIN",
 }
 
-// Determina el flujo de login basado en el estado del usuario
 function getLoginFlow(user: UsuarioRow): LoginFlow {
   switch (true) {
     case user.PrimerLogin === true:
       return LoginFlow.FIRST_LOGIN;
-
     default:
       return LoginFlow.NORMAL_LOGIN;
   }
 }
 
-// Firma un token JWT
 function signToken(payload: { usuarioId: string; rolId: RolId }) {
   const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("JWT_SECRET no está configurado");
-  }
+  if (!secret) throw new Error("JWT_SECRET no está configurado");
 
   const expiresIn = (process.env.JWT_EXPIRES_IN ??
     "9h") as SignOptions["expiresIn"];
@@ -45,8 +41,6 @@ function signToken(payload: { usuarioId: string; rolId: RolId }) {
 }
 
 export const authService = {
-
-  // Registro de nuevo usuario
   async register(input: {
     nombre: string;
     correo: string;
@@ -74,17 +68,17 @@ export const authService = {
     return { usuarioId: creado.UsuarioId, rolId: input.rolId, token };
   },
 
-  // Login de usuario
   async login(input: { correo: string; password: string }) {
     const correo = input.correo.trim().toLowerCase();
     const user = await authRepo.findByCorreo(correo);
 
-    if (!user)
+    if (!user) {
       throw new AppError(
         "Credenciales inválidas",
         400,
         "AUTH_INVALID_CREDENTIALS"
       );
+    }
 
     // 1) Si está bloqueado
     if (user.BloqueadoHasta && new Date(user.BloqueadoHasta) > new Date()) {
@@ -99,21 +93,25 @@ export const authService = {
       );
     }
 
-    // 2) Si ya pasó el bloqueo, limpia (opcional recomendado)
+    // 2) Si ya pasó el bloqueo, limpiamos (recomendado)
     if (user.BloqueadoHasta && new Date(user.BloqueadoHasta) <= new Date()) {
-      await authRepo.resetIntentos(user.UsuarioId); // también pone BloqueadoHasta = NULL
+      await authRepo.resetIntentos(user.UsuarioId);
     }
 
     const ok = await bcrypt.compare(input.password, user.PasswordHash);
 
     if (!ok) {
-      await authRepo.sumarIntento(user.UsuarioId);
-      const intentosActuales = (user.IntentosLoginFallidos ?? 0) + 1;
+      // ✅ ahora el SP suma intento y, si llega al umbral, bloquea
+      const r = await authRepo.addFailedLoginAttempt({
+        usuarioId: user.UsuarioId,
+        maxIntentos: MAX_ATTEMPTS,
+        minutosBloqueo: LOCK_MINUTES,
+      });
 
-      // si llegó al límite -> bloquear ahora
-      if (intentosActuales >= MAX_ATTEMPTS) {
-        await authRepo.bloquearUsuario(user.UsuarioId, LOCK_MINUTES);
+      const intentos = Number(r.IntentosLoginFallidos ?? 0);
 
+      // Si el SP dejó BloqueadoHasta, ya está bloqueado
+      if (r.BloqueadoHasta && new Date(r.BloqueadoHasta) > new Date()) {
         throw new AppError(
           `Demasiados intentos. Bloqueado por ${LOCK_MINUTES} minutos.`,
           429,
@@ -127,7 +125,7 @@ export const authService = {
         400,
         "AUTH_INVALID_CREDENTIALS",
         {
-          remainingAttempts: MAX_ATTEMPTS - intentosActuales,
+          remainingAttempts: Math.max(0, MAX_ATTEMPTS - intentos),
         }
       );
     }
@@ -139,12 +137,16 @@ export const authService = {
       usuarioId: user.UsuarioId,
       rolId: user.RolId as RolId,
     });
-
     const flow = getLoginFlow(user);
+
+    const isAngel = Number(user.RolId) === 2;
+
+    const angelStats = isAngel
+      ? await authRepo.getAngelStatsFromServicios(user.UsuarioId) // ✅ PerfilAngelId = UsuarioId
+      : null;
 
     switch (flow) {
       case LoginFlow.FIRST_LOGIN:
-        // marcar como ya ingresó
         await authRepo.marcarPrimerLogin(user.UsuarioId);
 
         return {
@@ -153,6 +155,7 @@ export const authService = {
           nombre: user.Nombre,
           token,
           primerLogin: true,
+          ...(isAngel ? { statsAngel: angelStats } : {}),
         };
 
       case LoginFlow.NORMAL_LOGIN:
@@ -163,30 +166,27 @@ export const authService = {
           nombre: user.Nombre,
           token,
           primerLogin: false,
+          ...(isAngel ? { statsAngel: angelStats } : {}),
         };
     }
   },
 
-  // Solicitar reseteo de contraseña
   async forgotPassword(input: { correo: string }) {
     const correo = input.correo.trim().toLowerCase();
     const user = await authRepo.findByCorreo(correo);
 
-    // Seguridad: no revelamos si el correo existe o no
     if (!user) {
       return {
         mensaje: "Si el correo existe, se enviará un código de recuperación.",
       };
     }
 
-    // ✅ NUEVO: invalidar tokens anteriores activos (deja solo el último válido)
     await authRepo.invalidateActiveResetTokens(user.UsuarioId);
 
-    // token aleatorio
-    const token = crypto.randomBytes(6).toString("hex"); // 12 chars
+    const token = crypto.randomBytes(6).toString("hex");
     const tokenHash = authRepo.hashToken(token);
 
-    const expiraEn = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+    const expiraEn = new Date(Date.now() + 5 * 60 * 1000);
 
     await authRepo.createResetToken({
       usuarioId: user.UsuarioId,
@@ -194,7 +194,6 @@ export const authService = {
       expiraEn,
     });
 
-    // ✅ enviar por correo (Gmail)
     const transporter = getTransporter();
     const { subject, text, html } = buildResetPasswordEmail({
       nombre: user.Nombre,
@@ -210,13 +209,11 @@ export const authService = {
       html,
     });
 
-    // DEV: devolvemos token para que puedas probar
     return {
       mensaje: "Si el correo existe, se enviará un código de recuperación.",
     };
   },
 
-  // Reseteo de contraseña
   async resetPassword(input: { token: string; newPassword: string }) {
     const tokenHash = authRepo.hashToken(input.token);
 

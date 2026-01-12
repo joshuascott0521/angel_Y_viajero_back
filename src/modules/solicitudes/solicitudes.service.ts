@@ -105,14 +105,13 @@ export const solicitudesService = {
 
   async getReviews(req: Request) {
     if (!req.user) throw httpError(401, "No autorizado");
-    if (req.user.rolId !== ROL.Angel) throw httpError(403, "Solo Angel");
+    if (req.user.rolId !== ROL.Viajero) throw httpError(403, "Solo Viajero");
 
     const { perfilAngelId } = req.params;
     if (!perfilAngelId) throw httpError(400, "perfilAngelId es requerido");
 
     // seguridad: solo puede ver las suyas
-    if (perfilAngelId !== req.user.usuarioId)
-      throw httpError(403, "Sin permiso");
+    if (perfilAngelId == req.user.usuarioId) throw httpError(403, "Sin permiso");
 
     return solicitudesRepo.getReviews(perfilAngelId);
   },

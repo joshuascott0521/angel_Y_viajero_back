@@ -9,10 +9,23 @@ export type UsuarioRow = {
   Nombre: string;
   Correo: string;
   PasswordHash: string;
-  Estado: number | boolean; // depende tu tabla (BIT o int)
+  Estado: number | boolean;
   IntentosLoginFallidos: number;
   BloqueadoHasta: Date | null;
   PrimerLogin: boolean;
+};
+
+export type FailedAttemptResult = {
+  Ok: boolean;
+  Code: string; // ATTEMPT_UPDATED
+  IntentosLoginFallidos: number;
+  BloqueadoHasta: Date | null;
+};
+
+export type AngelStatsRow = {
+  PersonasAyudadas: number;
+  HorasServicio: number;
+  Rating: number;
 };
 
 // encripta un token usando SHA256
@@ -21,41 +34,27 @@ function hashToken(token: string) {
 }
 
 export const authRepo = {
-  // Buscar usuario por correo
+  // SP: dbo.Auth_GetUsuarioByCorreo
   async findByCorreo(correo: string): Promise<UsuarioRow | null> {
     const pool = await getPool();
     const r = await pool
       .request()
-      .input("Correo", sql.VarChar(120), correo.trim().toLowerCase()).query(`
-        SELECT TOP 1
-          UsuarioId,
-          RolId,
-          Nombre,
-          Correo,
-          PasswordHash,
-          Estado,
-          IntentosLoginFallidos,
-          BloqueadoHasta,
-          PrimerLogin
-        FROM dbo.Usuario
-        WHERE Correo = @Correo;
-      `);
+      .input("Correo", sql.VarChar(120), correo.trim().toLowerCase())
+      .execute("dbo.Auth_GetUsuarioByCorreo");
 
     return r.recordset?.[0] ?? null;
   },
 
-  // Marca que el usuario ya no es primer login
+  // SP: dbo.Auth_MarcarPrimerLogin
   async marcarPrimerLogin(usuarioId: string) {
     const pool = await getPool();
-    await pool.request().input("UsuarioId", sql.UniqueIdentifier, usuarioId)
-      .query(`
-      UPDATE dbo.Usuario
-      SET PrimerLogin = 0
-      WHERE UsuarioId = @UsuarioId;
-    `);
+    await pool
+      .request()
+      .input("UsuarioId", sql.UniqueIdentifier, usuarioId)
+      .execute("dbo.Auth_MarcarPrimerLogin");
   },
 
-  // Crear nuevo usuario
+  // SP: dbo.Auth_CreateUsuario
   async createUsuario(input: {
     nombre: string;
     correo: string;
@@ -67,136 +66,113 @@ export const authRepo = {
       .request()
       .input("Nombre", sql.VarChar(200), input.nombre)
       .input("Correo", sql.VarChar(120), input.correo.trim().toLowerCase())
-      .input("PasswordHash", sql.VarChar(200), input.passwordHash)
-      .input("RolId", sql.Int, input.rolId).query(`
-        DECLARE @NewId UNIQUEIDENTIFIER = NEWID();
-
-        INSERT INTO dbo.Usuario (UsuarioId, Nombre, RolId, Correo, PasswordHash, IntentosLoginFallidos)
-        VALUES (@NewId, @Nombre, @RolId, @Correo, @PasswordHash, 0);
-
-        SELECT @NewId AS UsuarioId;
-`);
+      .input("PasswordHash", sql.VarChar(255), input.passwordHash)
+      .input("RolId", sql.Int, input.rolId)
+      .execute("dbo.Auth_CreateUsuario");
 
     return { UsuarioId: r.recordset[0].UsuarioId };
   },
 
-  // Bloquea un usuario por X minutos
+  // SP: dbo.Auth_ResetLoginAttempts
+  async resetIntentos(usuarioId: string) {
+    const pool = await getPool();
+    await pool
+      .request()
+      .input("UsuarioId", sql.UniqueIdentifier, usuarioId)
+      .execute("dbo.Auth_ResetLoginAttempts");
+  },
+
+  // SP: dbo.Auth_AddFailedLoginAttempt (también puede bloquear)
+  async addFailedLoginAttempt(input: {
+    usuarioId: string;
+    maxIntentos: number;
+    minutosBloqueo: number;
+  }): Promise<FailedAttemptResult> {
+    const pool = await getPool();
+    const r = await pool
+      .request()
+      .input("UsuarioId", sql.UniqueIdentifier, input.usuarioId)
+      .input("MaxIntentos", sql.Int, input.maxIntentos)
+      .input("MinutosBloqueo", sql.Int, input.minutosBloqueo)
+      .execute("dbo.Auth_AddFailedLoginAttempt");
+
+    return r.recordset?.[0] as FailedAttemptResult;
+  },
+
+  // SP: dbo.Auth_BlockUsuario (por si lo quieres usar manual/admin)
   async bloquearUsuario(usuarioId: string, minutos: number) {
     const pool = await getPool();
     await pool
       .request()
       .input("UsuarioId", sql.UniqueIdentifier, usuarioId)
-      .input("Minutos", sql.Int, minutos).query(`
-      UPDATE dbo.Usuario
-      SET BloqueadoHasta = DATEADD(MINUTE, @Minutos, SYSUTCDATETIME())
-      WHERE UsuarioId = @UsuarioId;
-    `);
+      .input("Minutos", sql.Int, minutos)
+      .execute("dbo.Auth_BlockUsuario");
   },
 
-  // Resetea los intentos de login fallidos y desbloquea al usuario
-  async resetIntentos(usuarioId: string) {
-    const pool = await getPool();
-    await pool.request().input("UsuarioId", sql.UniqueIdentifier, usuarioId)
-      .query(`
-      UPDATE dbo.Usuario
-      SET IntentosLoginFallidos = 0,
-          BloqueadoHasta = NULL
-      WHERE UsuarioId = @UsuarioId;
-    `);
-  },
-
-  // Suma un intento fallido de login
-  async sumarIntento(usuarioId: string) {
-    const pool = await getPool();
-    await pool.request().input("UsuarioId", sql.UniqueIdentifier, usuarioId)
-      .query(`
-        UPDATE dbo.Usuario
-        SET IntentosLoginFallidos = ISNULL(IntentosLoginFallidos, 0) + 1
-        WHERE UsuarioId = @UsuarioId;
-      `);
-  },
-
-  // Repositorio para tokens de reseteo de contraseña
+  // Repositorio para tokens
   hashToken,
 
-  // Crea un token de reseteo de contraseña
+  // SP: dbo.Auth_CreateResetToken
   async createResetToken(input: {
     usuarioId: string;
     tokenHash: string;
     expiraEn: Date;
   }) {
     const pool = await getPool();
-
     await pool
       .request()
       .input("UsuarioId", sql.UniqueIdentifier, input.usuarioId)
       .input("TokenHash", sql.VarChar(255), input.tokenHash)
-      .input("ExpiraEn", sql.DateTime2, input.expiraEn).query(`
-        INSERT INTO dbo.PasswordResetToken (UsuarioId, TokenHash, ExpiraEn, Usado)
-        VALUES (@UsuarioId, @TokenHash, @ExpiraEn, 0);
-      `);
+      .input("ExpiraEn", sql.DateTime2(0), input.expiraEn)
+      .execute("dbo.Auth_CreateResetToken");
   },
 
-  // Busca un token de reseteo válido por su hash
+  // SP: dbo.Auth_FindValidResetTokenByHash
   async findValidResetTokenByHash(tokenHash: string) {
     const pool = await getPool();
-
     const r = await pool
       .request()
-      .input("TokenHash", sql.VarChar(255), tokenHash).query(`
-      SELECT TOP 1
-        PasswordResetTokenId,
-        UsuarioId,
-        ExpiraEn,
-        Usado
-      FROM dbo.PasswordResetToken
-      WHERE TokenHash = @TokenHash
-        AND Usado = 0
-        AND ExpiraEn >= SYSUTCDATETIME()
-      ORDER BY FechaCreacion DESC;
-    `);
+      .input("TokenHash", sql.VarChar(255), tokenHash)
+      .execute("dbo.Auth_FindValidResetTokenByHash");
 
     return r.recordset?.[0] ?? null;
   },
 
-  // Marca un token de reseteo como usado
+  // SP: dbo.Auth_MarkResetTokenUsed
   async markResetTokenUsed(passwordResetTokenId: string) {
     const pool = await getPool();
-
-    await pool.request().input("Id", sql.UniqueIdentifier, passwordResetTokenId)
-      .query(`
-        UPDATE dbo.PasswordResetToken
-        SET Usado = 1
-        WHERE PasswordResetTokenId = @Id;
-      `);
+    await pool
+      .request()
+      .input("PasswordResetTokenId", sql.UniqueIdentifier, passwordResetTokenId)
+      .execute("dbo.Auth_MarkResetTokenUsed");
   },
 
-  // Invalida todos los tokens activos de reseteo de contraseña de un usuario
+  // SP: dbo.Auth_InvalidateActiveResetTokens
   async invalidateActiveResetTokens(usuarioId: string) {
     const pool = await getPool();
-
-    await pool.request().input("UsuarioId", sql.UniqueIdentifier, usuarioId)
-      .query(`
-      UPDATE dbo.PasswordResetToken
-      SET Usado = 1
-      WHERE UsuarioId = @UsuarioId
-        AND Usado = 0
-        AND ExpiraEn >= SYSUTCDATETIME();
-    `);
+    await pool
+      .request()
+      .input("UsuarioId", sql.UniqueIdentifier, usuarioId)
+      .execute("dbo.Auth_InvalidateActiveResetTokens");
   },
 
-  // Actualiza el hash de la contraseña de un usuario
+  // SP: dbo.Auth_UpdatePasswordHash (resetea intentos y desbloquea)
   async updatePasswordHash(input: { usuarioId: string; passwordHash: string }) {
     const pool = await getPool();
-
     await pool
       .request()
       .input("UsuarioId", sql.UniqueIdentifier, input.usuarioId)
-      .input("PasswordHash", sql.VarChar(255), input.passwordHash).query(`
-        UPDATE dbo.Usuario
-        SET PasswordHash = @PasswordHash,
-            IntentosLoginFallidos = 0
-        WHERE UsuarioId = @UsuarioId;
-      `);
+      .input("PasswordHash", sql.VarChar(255), input.passwordHash)
+      .execute("dbo.Auth_UpdatePasswordHash");
+  },
+
+  async getAngelStatsFromServicios(perfilAngelId: string): Promise<AngelStatsRow> {
+    const pool = await getPool();
+    const r = await pool
+      .request()
+      .input("PerfilAngelId", sql.UniqueIdentifier, perfilAngelId)
+      .execute("dbo.Angel_GetStatsFromServicios");
+
+    return r.recordset?.[0] ?? { PersonasAyudadas: 0, HorasServicio: 0, Rating: 0 };
   },
 };

@@ -65,7 +65,7 @@ export const solicitudesRepo = {
     const req = pool.request();
     req.input("PerfilAngelId", sql.UniqueIdentifier, perfilAngelId);
 
-    const r = await req.execute("dbo.SolicitudesGetByAngel");
+    const r = await req.execute("dbo.SolicitudesEnEsperaGetByAngel");
     return r.recordset;
   },
 

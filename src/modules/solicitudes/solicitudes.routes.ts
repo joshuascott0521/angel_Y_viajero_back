@@ -179,28 +179,6 @@ router.get(
 
 /**
  * @swagger
- * /api/solicitudes/viajero/{perfilViajeroId}:
- *   get:
- *     summary: Listar solicitudes del viajero
- *     description: Devuelve todas las solicitudes creadas por el viajero autenticado.
- *     tags: [Solicitudes]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: perfilViajeroId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Lista de solicitudes
- */
-router.get("/viajero/:perfilViajeroId", authJwt, controller.getByViajero);
-
-/**
- * @swagger
  * /api/solicitudes/angel/reviews/{perfilAngelId}:
  *   get:
  *     summary: Listar las reseñas del ángel
@@ -223,10 +201,32 @@ router.get("/angel/reviews/:perfilAngelId", authJwt, controller.getReviews);
 
 /**
  * @swagger
+ * /api/solicitudes/viajero/{perfilViajeroId}:
+ *   get:
+ *     summary: Listar solicitudes del viajero
+ *     description: Devuelve todas las solicitudes creadas por el viajero autenticado.
+ *     tags: [Solicitudes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: perfilViajeroId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Lista de solicitudes
+ */
+router.get("/viajero/:perfilViajeroId", authJwt, controller.getByViajero);
+
+/**
+ * @swagger
  * /api/solicitudes/angel/{perfilAngelId}:
  *   get:
- *     summary: Listar solicitudes del ángel
- *     description: Devuelve todas las solicitudes asociadas al ángel autenticado.
+ *     summary: Listar solicitudes del ángel en espera de confirmación
+ *     description: Devuelve todas las solicitudes asociadas al ángel en espera de confirmación.
  *     tags: [Solicitudes]
  *     security:
  *       - bearerAuth: []
