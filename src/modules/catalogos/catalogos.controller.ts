@@ -16,6 +16,9 @@ export const getTiposDiscapacidad = async (_: Request, res: Response) =>
 export const getCiudades = async (_: Request, res: Response) =>
   res.json(await catalogosRepo.getCiudades());
 
+export const getDuracionEstimada = async (_: Request, res: Response) =>
+  res.json(await catalogosRepo.getDuracionEstimada());
+
 export const getZonas = async (req: Request, res: Response) => {
   const ciudadId = req.query.ciudadId ? Number(req.query.ciudadId) : null;
   res.json(await catalogosRepo.getZonas(ciudadId));

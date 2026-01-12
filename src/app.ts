@@ -8,23 +8,27 @@ import catalogosRoutes from "./modules/catalogos/catalogos.routes";
 import { errorHandler } from "./middlewares/errorHandler";
 import solicitudesRoutes from "./modules/solicitudes/solicitudes.routes";
 import serviciosRoutes from "./modules/servicios/servicios.routes";
+import chatRoutes from "./modules/chat/chat.routes";
 
 const app = express();
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, cb) => {
-    // Permite requests sin origin (Postman, curl, etc.)
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // Postman/curl
+
+    const o = origin.toLowerCase();
 
     const allowed =
-      origin.includes("http://localhost") ||
-      origin.includes("http://127.0.0.1") ||
-      origin.endsWith(".use.devtunnels.ms");
+      o.startsWith("http://localhost") ||
+      o.startsWith("http://127.0.0.1") ||
+      o.includes(".use.devtunnels.ms");
 
-    return allowed ? cb(null, true) : cb(new Error("Not allowed by CORS"));
+    // ✅ NUNCA lances error aquí
+    return cb(null, allowed);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
@@ -40,7 +44,7 @@ app.use("/api/catalogos", catalogosRoutes);
 
 app.use("/api/solicitudes", solicitudesRoutes);
 app.use("/api/servicios", serviciosRoutes);
-
+app.use("/api/chat", chatRoutes);
 
 app.use(errorHandler);
 export default app;

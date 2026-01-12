@@ -5,7 +5,8 @@ import {
   getTiposAsistencia,
   getTiposDiscapacidad,
   getCiudades,
-  getZonas
+  getZonas,
+  getDuracionEstimada
 } from "./catalogos.controller";
 
 const router = Router();
@@ -76,6 +77,19 @@ router.get("/tipos-discapacidad", getTiposDiscapacidad);
  *         description: Lista de ciudades
  */
 router.get("/ciudades", getCiudades);
+
+/**
+ * @swagger
+ * /api/catalogos/duracion-estimada:
+ *   get:
+ *     summary: Listar duración estimada
+ *     tags: [Catálogos]
+ *     responses:
+ *       200:
+ *         description: Lista de duración estimada
+ */
+router.get("/duracion-estimada", getDuracionEstimada);
+
 
 /**
  * @swagger

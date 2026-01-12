@@ -37,6 +37,41 @@ export const swaggerSpec = swaggerJSDoc({
           },
           required: ["ok", "message"],
         },
+        ChatInboxItem: {
+          type: "object",
+          properties: {
+            solicitudId: { type: "string", format: "uuid" },
+            solicitudEstadoId: { type: "integer" },
+            estadoSolicitud: { type: "string" },
+            otroUsuarioId: { type: "string", format: "uuid" },
+            otroNombre: { type: "string" },
+            ultimoChatMensajeId: { type: "integer", nullable: true },
+            ultimoMensaje: { type: "string", nullable: true },
+            fechaUltimoMensaje: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            noLeidos: { type: "integer", example: 2 },
+          },
+        },
+        ChatMensaje: {
+          type: "object",
+          properties: {
+            chatMensajeId: { type: "integer" },
+            solicitudId: { type: "string", format: "uuid" },
+            emisorUsuarioId: { type: "string", format: "uuid" },
+            emisorNombre: { type: "string" },
+            mensaje: { type: "string" },
+            fechaEnvio: { type: "string", format: "date-time" },
+            leidoPorMi: { type: "boolean" },
+            fechaLectura: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+          },
+        },
       },
     },
     security: [

@@ -52,6 +52,16 @@ export const catalogosRepo = {
     return r.recordset;
   },
 
+  async getDuracionEstimada() {
+    const pool = await getPool();
+    const r = await pool.request().query(`
+      SELECT DuracionEstimadaId as Id, Etiqueta as Nombre
+      FROM dbo.DuracionEstimada
+      ORDER BY DuracionEstimadaId;
+    `);
+    return r.recordset;
+  },
+
   async getZonas(ciudadId: number | null) {
     const pool = await getPool();
     const req = pool.request();
