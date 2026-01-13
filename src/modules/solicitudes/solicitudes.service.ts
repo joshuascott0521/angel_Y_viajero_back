@@ -4,18 +4,18 @@ import { HttpError } from "../../utils/httpError";
 
 const ROL = { Viajero: 1, Angel: 2 } as const;
 
-
 function normalizeError(err: any) {
   if (err?.status) return err; // ya es error controlado
   console.error("[solicitudesService]", err); // log real (SQL, etc.)
-  return new HttpError (err, 500, "INTERNAL_SERVER_ERROR");
+  return new HttpError(err, 500, "INTERNAL_SERVER_ERROR");
 }
 
 export const solicitudesService = {
   async create(req: Request) {
     try {
-      if (!req.user) throw new HttpError ("No autorizado", 401);
-      if (req.user.rolId !== ROL.Viajero) throw new HttpError ("Solo Viajero", 403);
+      if (!req.user) throw new HttpError("No autorizado", 401);
+      if (req.user.rolId !== ROL.Viajero)
+        throw new HttpError("Solo Viajero", 403);
 
       const {
         perfilAngelId,
@@ -26,11 +26,16 @@ export const solicitudesService = {
         detalles,
       } = req.body ?? {};
 
-      if (!perfilAngelId) throw new HttpError ("perfilAngelId es requerido", 400);
-      if (!tipoAsistenciaId) throw new HttpError ("tipoAsistenciaId es requerido", 400);
-      if (!duracionEstimadaId) throw new HttpError ("duracionEstimadaId es requerido", 400);
-      if (!fechaHoraInicio) throw new HttpError ("fechaHoraInicio es requerido", 400);
-      if (!lugar || !String(lugar).trim()) throw new HttpError ("lugar es requerido", 400);
+      if (!perfilAngelId)
+        throw new HttpError("perfilAngelId es requerido", 400);
+      if (!tipoAsistenciaId)
+        throw new HttpError("tipoAsistenciaId es requerido", 400);
+      if (!duracionEstimadaId)
+        throw new HttpError("duracionEstimadaId es requerido", 400);
+      if (!fechaHoraInicio)
+        throw new HttpError("fechaHoraInicio es requerido", 400);
+      if (!lugar || !String(lugar).trim())
+        throw new HttpError("lugar es requerido", 400);
       return await solicitudesRepo.create({
         perfilViajeroId: req.user.usuarioId,
         perfilAngelId,
@@ -54,7 +59,8 @@ export const solicitudesService = {
       const { aceptar, motivoRechazo } = req.body ?? {};
 
       if (!solicitudId) throw new HttpError("solicitudId es requerido", 400);
-      if (typeof aceptar !== "boolean") throw new HttpError("aceptar debe ser boolean", 400);
+      if (typeof aceptar !== "boolean")
+        throw new HttpError("aceptar debe ser boolean", 400);
 
       return await solicitudesRepo.responderAngel({
         solicitudId,
@@ -70,7 +76,8 @@ export const solicitudesService = {
   async cancelarViajero(req: Request) {
     try {
       if (!req.user) throw new HttpError("No autorizado", 401);
-      if (req.user.rolId !== ROL.Viajero) throw new HttpError("Solo Viajero", 403);
+      if (req.user.rolId !== ROL.Viajero)
+        throw new HttpError("Solo Viajero", 403);
 
       const { solicitudId } = req.params;
       const { motivoCancelacion } = req.body ?? {};
@@ -93,8 +100,10 @@ export const solicitudesService = {
       if (req.user.rolId !== ROL.Angel) throw new HttpError("Solo Angel", 403);
 
       const { perfilAngelId } = req.params;
-      if (!perfilAngelId) throw new HttpError("perfilAngelId es requerido", 400);
-      if (perfilAngelId !== req.user.usuarioId) throw new HttpError("Sin permiso", 403);
+      if (!perfilAngelId)
+        throw new HttpError("perfilAngelId es requerido", 400);
+      if (perfilAngelId !== req.user.usuarioId)
+        throw new HttpError("Sin permiso", 403);
 
       return await solicitudesRepo.getByAngel(perfilAngelId);
     } catch (err: any) {
@@ -105,11 +114,14 @@ export const solicitudesService = {
   async getByViajero(req: Request) {
     try {
       if (!req.user) throw new HttpError("No autorizado", 401);
-      if (req.user.rolId !== ROL.Viajero) throw new HttpError("Solo Viajero", 403);
+      if (req.user.rolId !== ROL.Viajero)
+        throw new HttpError("Solo Viajero", 403);
 
       const { perfilViajeroId } = req.params;
-      if (!perfilViajeroId) throw new HttpError("perfilViajeroId es requerido", 400);
-      if (perfilViajeroId !== req.user.usuarioId) throw new HttpError("Sin permiso", 403);
+      if (!perfilViajeroId)
+        throw new HttpError("perfilViajeroId es requerido", 400);
+      if (perfilViajeroId !== req.user.usuarioId)
+        throw new HttpError("Sin permiso", 403);
 
       return await solicitudesRepo.getByViajero(perfilViajeroId);
     } catch (err: any) {
@@ -120,12 +132,15 @@ export const solicitudesService = {
   async getReviews(req: Request) {
     try {
       if (!req.user) throw new HttpError("No autorizado", 401);
-      if (req.user.rolId !== ROL.Viajero) throw new HttpError("Solo Viajero", 403);
+      if (req.user.rolId !== ROL.Viajero)
+        throw new HttpError("Solo Viajero", 403);
 
       const { perfilAngelId } = req.params;
-      if (!perfilAngelId) throw new HttpError("perfilAngelId es requerido", 400);
+      if (!perfilAngelId)
+        throw new HttpError("perfilAngelId es requerido", 400);
       // Nota: tu lógica actual bloquea si es el mismo usuario (ok)
-      if (perfilAngelId == req.user.usuarioId) throw new HttpError("Sin permiso", 403);
+      if (perfilAngelId == req.user.usuarioId)
+        throw new HttpError("Sin permiso", 403);
 
       return await solicitudesRepo.getReviews(perfilAngelId);
     } catch (err: any) {
@@ -136,31 +151,40 @@ export const solicitudesService = {
   async getAngelesSolicitud(req: Request) {
     try {
       if (!req.user) throw new HttpError("No autorizado", 401);
-      if (req.user.rolId !== ROL.Viajero) throw new HttpError("Solo Viajero", 403);
+      if (req.user.rolId !== ROL.Viajero)
+        throw new HttpError("Solo Viajero", 403);
 
-      const filtroRaw = String(req.query.filtro ?? "all").toLowerCase();
-      const filtro = (
-        ["all", "ciudad", "zona"].includes(filtroRaw) ? filtroRaw : null
-      ) as "all" | "ciudad" | "zona" | null;
-
-      if (!filtro) throw new HttpError("filtro inválido. Use: all | ciudad | zona", 400);
+      const ciudadId =
+        req.query.ciudadId === undefined ||
+        req.query.ciudadId === null ||
+        req.query.ciudadId === ""
+          ? null
+          : Number(req.query.ciudadId);
 
       const zonaId =
-        req.query.zonaId === undefined || req.query.zonaId === null
+        req.query.zonaId === undefined ||
+        req.query.zonaId === null ||
+        req.query.zonaId === ""
           ? null
           : Number(req.query.zonaId);
 
-      if (filtro === "zona") {
-        if (!zonaId || Number.isNaN(zonaId) || zonaId <= 0) {
-          throw new HttpError("zonaId es requerido y debe ser > 0 cuando filtro=zona", 400);
-        }
+      if (ciudadId !== null && (Number.isNaN(ciudadId) || ciudadId <= 0)) {
+        throw new HttpError("ciudadId debe ser un número > 0", 400);
       }
 
-      return await solicitudesRepo.getAngelesSolicitud({
-        perfilViajeroId: req.user.usuarioId,
-        filtro,
-        zonaId,
-      });
+      if (zonaId !== null && (Number.isNaN(zonaId) || zonaId <= 0)) {
+        throw new HttpError("zonaId debe ser un número > 0", 400);
+      }
+
+      // regla: zonaId solo si viene ciudadId
+      if (zonaId !== null && ciudadId === null) {
+        throw new HttpError(
+          "ciudadId es requerido cuando se envía zonaId",
+          400
+        );
+      }
+
+      return await solicitudesRepo.getAngelesSolicitud({ ciudadId, zonaId });
     } catch (err: any) {
       throw normalizeError(err);
     }

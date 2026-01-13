@@ -36,7 +36,10 @@ export const recompensasRepo = {
   // =============================
   // Categorías
   // =============================
-  async categoriaCreate(input: { nombre: string; descripcion?: string | null }) {
+  async categoriaCreate(input: {
+    nombre: string;
+    descripcion?: string | null;
+  }) {
     const pool = await getPool();
     const r = await pool
       .request()
@@ -133,6 +136,13 @@ export const recompensasRepo = {
       .request()
       .input("PerfilAngelId", sql.UniqueIdentifier, perfilAngelId)
       .execute("dbo.ResumenCanjes");
-    return r.recordset ?? [];
+    return (
+      r.recordset?.[0] ?? {
+        SaldoAlas: 0,
+        ServiciosCompletados: 0,
+        HorasServicio: 0,
+        CanjesRealizados: 0,
+      }
+    );
   },
 };
