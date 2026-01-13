@@ -15,3 +15,12 @@ export class HttpError extends Error {
     this.details = details;
   }
 }
+
+export function httpError(
+  status: number,
+  message: string,
+  code = "BAD_REQUEST",
+  details?: any
+) {
+  return new HttpError(message, status, code, details);
+}

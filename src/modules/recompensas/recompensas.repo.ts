@@ -132,8 +132,7 @@ export const recompensasRepo = {
     const r = await pool
       .request()
       .input("PerfilAngelId", sql.UniqueIdentifier, perfilAngelId)
-      .execute("dbo.AlaMovimientoGetSaldoByAngel");
-
-    return Number(r.recordset?.[0]?.Saldo ?? 0);
+      .execute("dbo.ResumenCanjes");
+    return r.recordset ?? [];
   },
 };

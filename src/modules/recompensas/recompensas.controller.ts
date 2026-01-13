@@ -78,7 +78,7 @@ export const recompensasController = {
   async miSaldo(req: Request, res: Response) {
     try {
       const r = await recompensasService.miSaldo((req as any).user);
-      return r.ok ? res.json(r) : res.status(403).json(r);
+      return res.json(r);
     } catch (err: any) {
       return res.status(500).json({ ok: false, message: err?.message ?? "Error interno" });
     }

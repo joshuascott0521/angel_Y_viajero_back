@@ -121,6 +121,6 @@ export const recompensasService = {
     }
 
     const saldo = await recompensasRepo.getSaldoAlas(perfilAngelId);
-    return { ok: true, data: { saldo } };
+    return saldo;
   },
 };
