@@ -25,15 +25,9 @@ const router = Router();
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/ChatInboxItem'
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ChatInboxItem'
  *       401:
  *         description: Usuario no autenticado
  */
@@ -41,6 +35,55 @@ router.get("/inbox", authJwt, chatController.inbox);
 
 /**
  * @swagger
+ * /api/chat/solicitud/{solicitudId}/mensaje:
+ *   post:
+ *     summary: Enviar un mensaje en una solicitud
+ *     description: |
+ *       Envía un mensaje en el chat asociado a una solicitud.
+ *       El usuario autenticado debe pertenecer a la solicitud.
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: solicitudId
+ *         in: path
+ *         required: true
+ *         description: ID de la solicitud
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [mensaje]
+ *             properties:
+ *               mensaje:
+ *                 type: string
+ *                 example: "Hola, ¿cómo estás?"
+ *     responses:
+ *       200:
+ *         description: Mensaje enviado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatMensaje'
+ *       400:
+ *         description: Error de validación
+ *       401:
+ *         description: Usuario no autenticado
+ *       403:
+ *         description: El usuario no pertenece a la solicitud
+ */
+router.post(
+  "/solicitud/:solicitudId/mensaje",
+  authJwt,
+  chatController.enviarMensaje
+);
+
+/* @swagger
  * /api/chat/solicitud/{solicitudId}:
  *   get:
  *     summary: Obtener historial de mensajes de una solicitud
@@ -71,21 +114,19 @@ router.get("/inbox", authJwt, chatController.inbox);
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/ChatMensaje'
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ChatMensaje'
  *       401:
  *         description: Usuario no autenticado
  *       403:
  *         description: El usuario no pertenece a la solicitud
  */
-router.get("/solicitud/:solicitudId", authJwt, chatController.mensajesBySolicitud);
+router.get(
+  "/solicitud/:solicitudId",
+  authJwt,
+  chatController.mensajesBySolicitud
+);
 
 /**
  * @swagger
@@ -138,7 +179,11 @@ router.get("/solicitud/:solicitudId", authJwt, chatController.mensajesBySolicitu
  *       403:
  *         description: El usuario no pertenece a la solicitud
  */
-router.post("/solicitud/:solicitudId/leer", authJwt, chatController.marcarLeidos);
+router.post(
+  "/solicitud/:solicitudId/leer",
+  authJwt,
+  chatController.marcarLeidos
+);
 
 /**
  * @swagger
@@ -178,6 +223,10 @@ router.post("/solicitud/:solicitudId/leer", authJwt, chatController.marcarLeidos
  *       403:
  *         description: El usuario no pertenece a la solicitud
  */
-router.get("/solicitud/:solicitudId/noleidos", authJwt, chatController.noLeidos);
+router.get(
+  "/solicitud/:solicitudId/noleidos",
+  authJwt,
+  chatController.noLeidos
+);
 
 export default router;

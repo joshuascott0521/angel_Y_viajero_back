@@ -22,6 +22,7 @@ const corsOptions: cors.CorsOptions = {
     const allowed =
       o.startsWith("http://localhost") ||
       o.startsWith("http://127.0.0.1") ||
+      o.startsWith("https://educamente.online") ||
       o.includes(".use.devtunnels.ms");
 
     // ✅ NUNCA lances error aquí
@@ -36,6 +37,7 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // preflight
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get("/health", (_, res) => res.json({ ok: true }));

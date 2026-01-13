@@ -11,7 +11,24 @@ export const chatController = {
     if (!usuarioId) return apiError(res, 401, "No autenticado", "AUTH_REQUIRED");
 
     const data = await chatService.inbox(usuarioId);
-    return res.json({ ok: true, data });
+    return res.json(data);
+  },
+
+  async enviarMensaje(req: Request, res: Response) {
+    const usuarioId = req.user?.usuarioId;
+    if (!usuarioId) return apiError(res, 401, "No autenticado", "AUTH_REQUIRED");
+    const { solicitudId } = req.params;
+    const { mensaje } = req.body;
+    if (!solicitudId) return apiError(res, 400, "solicitudId es requerido", "VALIDATION_ERROR");
+    if (!mensaje || typeof mensaje !== "string" || !mensaje.trim()) {
+      return apiError(res, 400, "mensaje es requerido", "VALIDATION_ERROR");
+    }
+    try {
+      const msg = await chatService.enviarMensaje(solicitudId, usuarioId, mensaje.trim());
+      return res.json(msg);
+    } catch (e: any) {
+      return apiError(res, 403, e.message || "No autorizado", "CHAT_FORBIDDEN");
+    }
   },
 
   async mensajesBySolicitud(req: Request, res: Response) {
@@ -27,7 +44,7 @@ export const chatController = {
 
     try {
       const data = await chatService.mensajes(solicitudId, usuarioId, take);
-      return res.json({ ok: true, data });
+      return res.json(data);
     } catch (e: any) {
       // tus SP tiran RAISERROR con mensaje claro
       return apiError(res, 403, e.message || "No autorizado", "CHAT_FORBIDDEN");

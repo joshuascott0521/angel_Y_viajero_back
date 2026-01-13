@@ -16,11 +16,40 @@ export const chatRepo = {
       estadoSolicitud: String(x.EstadoSolicitud),
       otroUsuarioId: String(x.OtroUsuarioId),
       otroNombre: String(x.OtroNombre),
-      ultimoChatMensajeId: x.UltimoChatMensajeId != null ? Number(x.UltimoChatMensajeId) : null,
+      ultimoChatMensajeId:
+        x.UltimoChatMensajeId != null ? Number(x.UltimoChatMensajeId) : null,
       ultimoMensaje: x.UltimoMensaje != null ? String(x.UltimoMensaje) : null,
-      fechaUltimoMensaje: x.FechaUltimoMensaje != null ? new Date(x.FechaUltimoMensaje).toISOString() : null,
+      fechaUltimoMensaje:
+        x.FechaUltimoMensaje != null
+          ? new Date(x.FechaUltimoMensaje).toISOString()
+          : null,
       noLeidos: x.NoLeidos != null ? Number(x.NoLeidos) : 0,
     }));
+  },
+
+  async enviarMensaje(input: {
+    solicitudId: string;
+    emisorUsuarioId: string;
+    mensaje: string;
+  }): Promise<ChatMensajeDTO> {
+    const pool = await getPool();
+    const r = await pool
+      .request()
+      .input("SolicitudId", sql.UniqueIdentifier, input.solicitudId)
+      .input("EmisorUsuarioId", sql.UniqueIdentifier, input.emisorUsuarioId)
+      .input("Mensaje", sql.NVarChar(sql.MAX), input.mensaje)
+      .execute("dbo.ChatMensajeEnviar");
+    const row = r.recordset?.[0];
+    return {
+      chatMensajeId: Number(row.ChatMensajeId),
+      solicitudId: String(row.SolicitudId),
+      emisorUsuarioId: String(row.EmisorUsuarioId),
+      emisorNombre: String(row.EmisorNombre),
+      mensaje: String(row.Mensaje),
+      fechaEnvio: new Date(row.FechaEnvio).toISOString(),
+      leidoPorMi: false,
+      fechaLectura: null,
+    };
   },
 
   async mensajesGetBySolicitud(input: {
@@ -44,7 +73,8 @@ export const chatRepo = {
       mensaje: String(x.Mensaje),
       fechaEnvio: new Date(x.FechaEnvio).toISOString(),
       leidoPorMi: Number(x.LeidoPorMi) === 1,
-      fechaLectura: x.FechaLectura != null ? new Date(x.FechaLectura).toISOString() : null,
+      fechaLectura:
+        x.FechaLectura != null ? new Date(x.FechaLectura).toISOString() : null,
     }));
   },
 
@@ -62,11 +92,17 @@ export const chatRepo = {
       .execute("dbo.ChatMarcarLeidos");
 
     const row = r.recordset?.[0];
-    return { mensajesMarcados: row?.MensajesMarcados != null ? Number(row.MensajesMarcados) : 0 };
+    return {
+      mensajesMarcados:
+        row?.MensajesMarcados != null ? Number(row.MensajesMarcados) : 0,
+    };
   },
 
   // ✅ Solo si creaste dbo.ChatNoLeidosBySolicitud
-  async noLeidosBySolicitud(input: { solicitudId: string; usuarioId: string }): Promise<number> {
+  async noLeidosBySolicitud(input: {
+    solicitudId: string;
+    usuarioId: string;
+  }): Promise<number> {
     const pool = await getPool();
     const r = await pool
       .request()
@@ -74,6 +110,34 @@ export const chatRepo = {
       .input("UsuarioId", sql.UniqueIdentifier, input.usuarioId)
       .execute("dbo.ChatNoLeidosBySolicitud");
 
-    return r.recordset?.[0]?.NoLeidos != null ? Number(r.recordset[0].NoLeidos) : 0;
+    return r.recordset?.[0]?.NoLeidos != null
+      ? Number(r.recordset[0].NoLeidos)
+      : 0;
+  },
+
+  // ejemplo: retorna { viajeroId, angelId }
+  async getParticipantesBySolicitudId(
+    solicitudId: string
+  ): Promise<{ viajeroId: string; angelId: string }> {
+    const pool = await getPool();
+    const r = await pool
+      .request()
+      .input("SolicitudId", sql.UniqueIdentifier, solicitudId).query(`
+      SELECT
+        PerfilViajeroId AS ViajeroId,
+        PerfilAngelId   AS AngelId
+      FROM dbo.Solicitud
+      WHERE SolicitudId = @SolicitudId
+    `);
+
+    const row = r.recordset?.[0];
+    if (!row?.ViajeroId || !row?.AngelId) {
+      throw new Error("No se encontraron participantes para la solicitud");
+    }
+
+    return {
+      viajeroId: String(row.ViajeroId),
+      angelId: String(row.AngelId),
+    };
   },
 };

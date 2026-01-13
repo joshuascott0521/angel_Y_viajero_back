@@ -132,11 +132,7 @@ export const recompensasRepo = {
     const r = await pool
       .request()
       .input("PerfilAngelId", sql.UniqueIdentifier, perfilAngelId)
-      .query(`
-        SELECT ISNULL(SUM(CASE WHEN TipoMovimiento='Ingreso' THEN Cantidad ELSE -Cantidad END),0) AS Saldo
-        FROM dbo.AlaMovimiento
-        WHERE PerfilAngelId = @PerfilAngelId;
-      `);
+      .execute("dbo.AlaMovimientoGetSaldoByAngel");
 
     return Number(r.recordset?.[0]?.Saldo ?? 0);
   },

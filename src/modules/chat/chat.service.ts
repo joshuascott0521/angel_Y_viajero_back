@@ -17,4 +17,8 @@ export const chatService = {
   async noLeidos(solicitudId: string, usuarioId: string) {
     return chatRepo.noLeidosBySolicitud({ solicitudId, usuarioId });
   },
+
+  async enviarMensaje(solicitudId: string, emisorUsuarioId: string, mensaje: string) {
+    return chatRepo.enviarMensaje({ solicitudId, emisorUsuarioId, mensaje });
+  }
 };

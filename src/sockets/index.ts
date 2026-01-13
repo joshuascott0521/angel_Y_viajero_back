@@ -8,6 +8,7 @@ export function registerSockets(io: Server) {
 
   io.on("connection", (socket) => {
     const usuarioId = socket.data.usuarioId;
+    console.log("✅ socket connected", socket.id, "usuarioId:", usuarioId);
 
     // Room personal (opcional)
     socket.join(`usuario:${usuarioId}`);
@@ -17,12 +18,12 @@ export function registerSockets(io: Server) {
        =============================== */
 
     socket.on("solicitud:join", ({ solicitudId }) => {
-      if (!solicitudId) return;
+      console.log("➡️ join", usuarioId, solicitudId);
       socket.join(`solicitud:${solicitudId}`);
     });
 
     socket.on("solicitud:leave", ({ solicitudId }) => {
-      if (!solicitudId) return;
+      console.log("⬅️ leave", usuarioId, solicitudId);
       socket.leave(`solicitud:${solicitudId}`);
     });
 
@@ -40,10 +41,19 @@ export function registerSockets(io: Server) {
           mensaje: mensaje.trim(),
         });
 
+        // 1) chat abierto
         io.to(`solicitud:${solicitudId}`).emit("chat:nuevo", {
           ...msg,
           tempId: tempId ?? null,
         });
+
+        // 2) inbox (SIEMPRE) -> a cada usuario
+        const { viajeroId, angelId } =
+          await chatRepo.getParticipantesBySolicitudId(solicitudId);
+
+        // emite un evento separado para inbox (puede ser el mismo chat:nuevo o uno nuevo)
+        io.to(`usuario:${viajeroId}`).emit("inbox:nuevo", msg);
+        io.to(`usuario:${angelId}`).emit("inbox:nuevo", msg);
       } catch (err: any) {
         socket.emit("chat:error", {
           message: err.message || "No se pudo enviar el mensaje",
@@ -57,7 +67,7 @@ export function registerSockets(io: Server) {
 
     socket.on("chat:leer", async ({ solicitudId, hastaChatMensajeId }) => {
       if (!solicitudId) return;
-
+      console.log("👀 leer", usuarioId, solicitudId, { hastaChatMensajeId });
       const r = await chatRepo.marcarLeidos({
         solicitudId,
         usuarioId,
@@ -68,7 +78,14 @@ export function registerSockets(io: Server) {
       io.to(`usuario:${usuarioId}`).emit("chat:badge", {
         solicitudId,
         noLeidos: 0,
-        mensajesMarcados: r.MensajesMarcados,
+        mensajesMarcados: r.mensajesMarcados,
+      });
+
+      io.to(`solicitud:${solicitudId}`).emit("chat:visto", {
+        solicitudId,
+        hastaChatMensajeId,
+        lectorUsuarioId: usuarioId,
+        fechaLectura: new Date().toISOString(),
       });
     });
 
