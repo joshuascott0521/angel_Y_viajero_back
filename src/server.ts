@@ -14,7 +14,8 @@ export const io = new Server(server, {
       const allowed =
         o.startsWith("http://localhost") ||
         o.startsWith("http://127.0.0.1") ||
-        o.includes(".use.devtunnels.ms");
+        o.includes(".use.devtunnels.ms") ||
+        o.includes("https://educamente.online/");
       cb(null, allowed);
     },
     methods: ["GET", "POST"],
