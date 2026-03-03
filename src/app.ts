@@ -23,6 +23,8 @@ const corsOptions: cors.CorsOptions = {
       o.startsWith("http://localhost") ||
       o.startsWith("http://127.0.0.1") ||
       o.startsWith("https://educamente.online") ||
+      o.startsWith("https://antaresdi.com") ||
+      o.startsWith("https://www.antaresdi.com") ||
       o.includes(".use.devtunnels.ms");
 
     // ✅ NUNCA lances error aquí

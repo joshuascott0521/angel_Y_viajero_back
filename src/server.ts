@@ -14,8 +14,10 @@ export const io = new Server(server, {
       const allowed =
         o.startsWith("http://localhost") ||
         o.startsWith("http://127.0.0.1") ||
-        o.includes(".use.devtunnels.ms") ||
-        o.includes("https://educamente.online/");
+        o.startsWith("https://educamente.online") ||
+        o.startsWith("https://antaresdi.com") ||
+        o.startsWith("https://www.antaresdi.com") ||
+        o.includes(".use.devtunnels.ms");
       cb(null, allowed);
     },
     methods: ["GET", "POST"],
