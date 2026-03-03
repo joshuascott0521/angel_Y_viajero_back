@@ -28,5 +28,8 @@ logs/
 # Coverage
 coverage/
 
+# Claude
+.claude/
+
 # Misc
 *.tmp

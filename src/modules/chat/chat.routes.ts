@@ -83,7 +83,7 @@ router.post(
   chatController.enviarMensaje
 );
 
-/* @swagger
+/** @swagger
  * /api/chat/solicitud/{solicitudId}:
  *   get:
  *     summary: Obtener historial de mensajes de una solicitud
