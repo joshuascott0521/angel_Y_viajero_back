@@ -50,7 +50,7 @@ export const authService = {
     const correo = input.correo.trim().toLowerCase();
 
     const existing = await authRepo.findByCorreo(correo);
-    if (existing) throw new Error("El correo ya está registrado");
+    if (existing) throw new AppError("El correo ya está registrado", 409, "AUTH_CORREO_DUPLICADO");
 
     const hash = await bcrypt.hash(input.password, 10);
 
@@ -75,7 +75,7 @@ export const authService = {
     if (!user) {
       throw new AppError(
         "Credenciales inválidas",
-        400,
+        401,
         "AUTH_INVALID_CREDENTIALS"
       );
     }
@@ -122,7 +122,7 @@ export const authService = {
 
       throw new AppError(
         "Credenciales inválidas",
-        400,
+        401,
         "AUTH_INVALID_CREDENTIALS",
         {
           remainingAttempts: Math.max(0, MAX_ATTEMPTS - intentos),
@@ -177,13 +177,14 @@ export const authService = {
 
     if (!user) {
       return {
+        exito: true,
         mensaje: "Si el correo existe, se enviará un código de recuperación.",
       };
     }
 
     await authRepo.invalidateActiveResetTokens(user.UsuarioId);
 
-    const token = crypto.randomBytes(6).toString("hex");
+    const token = String(Math.floor(100000 + Math.random() * 900000));
     const tokenHash = authRepo.hashToken(token);
 
     const expiraEn = new Date(Date.now() + 5 * 60 * 1000);
@@ -194,23 +195,30 @@ export const authService = {
       expiraEn,
     });
 
-    const transporter = getTransporter();
-    const { subject, text, html } = buildResetPasswordEmail({
-      nombre: user.Nombre,
-      token,
-      expiraMin: 5,
-    });
+    const isDev = !process.env.MAIL_USER || !process.env.MAIL_PASS;
 
-    await transporter.sendMail({
-      from: MAIL_FROM,
-      to: user.Correo,
-      subject,
-      text,
-      html,
-    });
+    if (!isDev) {
+      const transporter = getTransporter();
+      const { subject, text, html } = buildResetPasswordEmail({
+        nombre: user.Nombre,
+        token,
+        expiraMin: 5,
+      });
+
+      await transporter.sendMail({
+        from: MAIL_FROM,
+        to: user.Correo,
+        subject,
+        text,
+        html,
+      });
+    }
 
     return {
+      exito: true,
       mensaje: "Si el correo existe, se enviará un código de recuperación.",
+      correo: user.Correo,
+      ...(isDev ? { token, expiraEn: expiraEn.toISOString() } : {}),
     };
   },
 

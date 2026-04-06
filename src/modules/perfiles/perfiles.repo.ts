@@ -1,6 +1,33 @@
 import sql from "mssql";
 import { getPool } from "../../config/db";
 
+// Convierte un valor TIME de SQL Server (Date object o string) a "HH:MM" para la API
+function formatTime(v: any): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) {
+    const hh = String(v.getUTCHours()).padStart(2, "0");
+    const mm = String(v.getUTCMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+  // ya es string — devolver solo HH:MM
+  return String(v).substring(0, 5);
+}
+
+// Normaliza hora a "HH:MM:SS" — acepta "09:00", "09:00:00" o ISO "1970-01-01T09:00:00.000Z"
+function parseHora(h: string): string | null {
+  if (!h) return null;
+  if (h.includes("T")) {
+    // ISO datetime — extract time part from UTC
+    const d = new Date(h);
+    if (isNaN(d.getTime())) return null;
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mm = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${hh}:${mm}:00`;
+  }
+  // "09:00" → "09:00:00", "09:00:00" → unchanged
+  return h.length === 5 ? h + ":00" : h;
+}
+
 export const perfilesRepo = {
 
   // =========================
@@ -194,13 +221,8 @@ export const perfilesRepo = {
         hasTipo ? input.tipoDiscapacidadId : null
       ).query(`
       IF NOT EXISTS (SELECT 1 FROM dbo.PerfilViajero WHERE UsuarioId = @UsuarioId)
-      BEGIN
-        IF @ZonaId IS NULL OR @TipoDiscapacidadId IS NULL
-          RAISERROR('Para crear el perfil, zonaId y tipoDiscapacidadId son requeridos.', 16, 1);
-
         INSERT INTO dbo.PerfilViajero (UsuarioId, ZonaId, TipoDiscapacidadId)
         VALUES (@UsuarioId, @ZonaId, @TipoDiscapacidadId);
-      END
     `);
 
     // Patch parcial
@@ -403,7 +425,11 @@ export const perfilesRepo = {
       Habilidades: habR.recordset,
       Idiomas: idiR.recordset,
       ZonasCobertura: zonasR.recordset,
-      HorarioDisponibilidad: dispR.recordset,
+      HorarioDisponibilidad: dispR.recordset.map((d: any) => ({
+        ...d,
+        HoraInicio: formatTime(d.HoraInicio),
+        HoraFin: formatTime(d.HoraFin),
+      })),
     };
   },
 
@@ -441,12 +467,18 @@ export const perfilesRepo = {
       .input("Biografia", sql.VarChar(500), hasBio ? input.biografia : null)
       .input("SetZonaBaseId", sql.Bit, hasZona ? 1 : 0)
       .input("ZonaBaseId", sql.Int, hasZona ? input.zonaBaseId : null).query(`
-        UPDATE dbo.PerfilAngel
-        SET
-          Disponibilidad = CASE WHEN @SetDisponibilidad = 1 THEN @Disponibilidad ELSE Disponibilidad END,
-          Biografia      = CASE WHEN @SetBiografia = 1 THEN @Biografia ELSE Biografia END,
-          ZonaBaseId     = CASE WHEN @SetZonaBaseId = 1 THEN @ZonaBaseId ELSE ZonaBaseId END
-        WHERE UsuarioId = @UsuarioId;
+        IF NOT EXISTS (SELECT 1 FROM dbo.PerfilAngel WHERE UsuarioId = @UsuarioId)
+          INSERT INTO dbo.PerfilAngel (UsuarioId, Disponibilidad, Biografia, ZonaBaseId, TotalServiciosRealizados, PromedioCalificacion)
+          VALUES (@UsuarioId, CASE WHEN @SetDisponibilidad=1 THEN @Disponibilidad ELSE 0 END,
+                  CASE WHEN @SetBiografia=1 THEN @Biografia ELSE NULL END,
+                  CASE WHEN @SetZonaBaseId=1 THEN @ZonaBaseId ELSE NULL END, 0, 0);
+        ELSE
+          UPDATE dbo.PerfilAngel
+          SET
+            Disponibilidad = CASE WHEN @SetDisponibilidad = 1 THEN @Disponibilidad ELSE Disponibilidad END,
+            Biografia      = CASE WHEN @SetBiografia = 1 THEN @Biografia ELSE Biografia END,
+            ZonaBaseId     = CASE WHEN @SetZonaBaseId = 1 THEN @ZonaBaseId ELSE ZonaBaseId END
+          WHERE UsuarioId = @UsuarioId;
       `);
   },
 
@@ -561,12 +593,8 @@ export const perfilesRepo = {
           .input("UsuarioId", sql.UniqueIdentifier, input.usuarioId)
           .input("DiaSemana", sql.TinyInt, d.diaSemana)
           .input("Activo", sql.Bit, d.activo ? 1 : 0)
-          .input(
-            "HoraInicio",
-            sql.Time(0),
-            d.activo ? d.horaInicio ?? null : null
-          )
-          .input("HoraFin", sql.Time(0), d.activo ? d.horaFin ?? null : null)
+          .input("HoraInicio", sql.VarChar(8), d.activo && d.horaInicio ? parseHora(d.horaInicio) : null)
+          .input("HoraFin", sql.VarChar(8), d.activo && d.horaFin ? parseHora(d.horaFin) : null)
           .query(`
             IF EXISTS (SELECT 1 FROM dbo.AngelDisponibilidad WHERE UsuarioId=@UsuarioId AND DiaSemana=@DiaSemana)
             BEGIN

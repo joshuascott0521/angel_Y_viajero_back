@@ -23,40 +23,39 @@ export const perfilesService = {
   // PATCH VIAJERO
   async patchPerfilViajero(usuarioId: string, body: any) {
     try {
-      // 1) personal (Usuario)
+      // 1) personal (Usuario) — solo pasar campos que realmente vienen en el body
       if (body.personal && typeof body.personal === "object") {
+        const p = body.personal;
         await perfilesRepo.patchUsuarioPersonal({
           usuarioId,
-          nombre: body.personal.nombre,
-          correo: body.personal.correo,
-          telefono: body.personal.telefono,
-          edad: body.personal.edad,
+          ...(Object.prototype.hasOwnProperty.call(p, "nombre") ? { nombre: p.nombre } : {}),
+          ...(Object.prototype.hasOwnProperty.call(p, "correo") ? { correo: p.correo } : {}),
+          ...(Object.prototype.hasOwnProperty.call(p, "telefono") ? { telefono: p.telefono } : {}),
+          ...(Object.prototype.hasOwnProperty.call(p, "edad") ? { edad: p.edad } : {}),
         });
       }
 
-      // 2) PERFIL VIAJERO (esto crea la fila si no existe)
-      await perfilesRepo.patchPerfilViajero({
-        usuarioId,
-        ...(Object.prototype.hasOwnProperty.call(body, "zonaId")
-          ? { zonaId: Number(body.zonaId) }
-          : {}),
-        ...(Object.prototype.hasOwnProperty.call(body, "tipoDiscapacidadId")
-          ? { tipoDiscapacidadId: Number(body.tipoDiscapacidadId) }
-          : {}),
-        ...(Object.prototype.hasOwnProperty.call(body, "interesesTuristicos")
-          ? { interesesTuristicos: body.interesesTuristicos ?? null }
-          : {}),
-        ...(Object.prototype.hasOwnProperty.call(
-          body,
-          "requerimientosAdicionales"
-        )
-          ? {
-              requerimientosAdicionales: body.requerimientosAdicionales ?? null,
-            }
-          : {}),
-      });
+      // 2) PERFIL VIAJERO — lee de body.perfil (formato del frontend)
+      const pf = body.perfil && typeof body.perfil === "object" ? body.perfil : null;
+      if (pf) {
+        await perfilesRepo.patchPerfilViajero({
+          usuarioId,
+          ...(Object.prototype.hasOwnProperty.call(pf, "zonaId")
+            ? { zonaId: pf.zonaId != null ? Number(pf.zonaId) : undefined }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(pf, "tipoDiscapacidadId")
+            ? { tipoDiscapacidadId: pf.tipoDiscapacidadId != null ? Number(pf.tipoDiscapacidadId) : undefined }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(pf, "interesesTuristicos")
+            ? { interesesTuristicos: pf.interesesTuristicos ?? null }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(pf, "requerimientosAdicionales")
+            ? { requerimientosAdicionales: pf.requerimientosAdicionales ?? null }
+            : {}),
+        });
+      }
 
-      // 3) AHORA SÍ paisOrigen (ya existe la fila)
+      // 3) paisOrigen vive en body.personal (después de asegurar fila en PerfilViajero)
       if (body.personal && typeof body.personal === "object") {
         if (Object.prototype.hasOwnProperty.call(body.personal, "paisOrigen")) {
           await perfilesRepo.patchPerfilViajero({
@@ -66,18 +65,21 @@ export const perfilesService = {
         }
       }
 
-      // asistencias
+      // asistencias — acepta body.asistenciasIds (array de números)
+      // o body.asistencias (array de objetos con tipoAsistenciaId) — formato del frontend
       if (Object.prototype.hasOwnProperty.call(body, "asistenciasIds")) {
         const ids = Array.isArray(body.asistenciasIds)
           ? body.asistenciasIds.map(Number)
           : [];
-        await perfilesRepo.replaceViajeroAsistencias({
-          usuarioId,
-          tipoAsistenciaIds: ids,
-        });
+        await perfilesRepo.replaceViajeroAsistencias({ usuarioId, tipoAsistenciaIds: ids });
+      } else if (Array.isArray(body.asistencias)) {
+        const ids = body.asistencias
+          .map((a: any) => Number(a.tipoAsistenciaId ?? a.id))
+          .filter((n: number) => !isNaN(n));
+        await perfilesRepo.replaceViajeroAsistencias({ usuarioId, tipoAsistenciaIds: ids });
       }
 
-      // contacto emergencia
+      // contacto emergencia — acepta parentesco o relacion (alias del frontend)
       if (Object.prototype.hasOwnProperty.call(body, "contactoEmergencia")) {
         const ce = body.contactoEmergencia;
         if (ce && typeof ce === "object") {
@@ -85,16 +87,20 @@ export const perfilesService = {
             usuarioId,
             nombre: ce.nombre,
             telefono: ce.telefono,
-            parentesco: ce.parentesco,
+            parentesco: ce.parentesco ?? ce.relacion ?? "",
           });
         }
       }
 
-      // idiomas
+      // idiomas — acepta body.idiomaIds (array de números)
+      // o body.idiomas (array de objetos con idiomaId) — formato del frontend
       if (Object.prototype.hasOwnProperty.call(body, "idiomaIds")) {
-        const ids = Array.isArray(body.idiomaIds)
-          ? body.idiomaIds.map(Number)
-          : [];
+        const ids = Array.isArray(body.idiomaIds) ? body.idiomaIds.map(Number) : [];
+        await perfilesRepo.replaceUsuarioIdiomas({ usuarioId, idiomaIds: ids });
+      } else if (Array.isArray(body.idiomas)) {
+        const ids = body.idiomas
+          .map((i: any) => Number(i.idiomaId ?? i.id))
+          .filter((n: number) => !isNaN(n));
         await perfilesRepo.replaceUsuarioIdiomas({ usuarioId, idiomaIds: ids });
       }
 
