@@ -25,6 +25,10 @@ const corsOptions: cors.CorsOptions = {
       o.startsWith("https://educamente.online") ||
       o.startsWith("https://antaresdi.com") ||
       o.startsWith("https://www.antaresdi.com") ||
+      o.startsWith("https://angelapp.online") ||
+      o.startsWith("https://www.angelapp.online") ||
+      o.startsWith("https://angelesyviajeros.com") ||
+      o.startsWith("https://www.angelesyviajeros.com") ||
       o.includes(".use.devtunnels.ms");
 
     // ✅ NUNCA lances error aquí
